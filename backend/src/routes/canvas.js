@@ -11,12 +11,19 @@ router.get('/assignments', auth, async (req, res) => {
   const assignments = await prisma.canvasAssignment.findMany({
     where: {
       userId: req.user.id,
-      // Exclude placeholder demo data once real Canvas is connected
       NOT: req.user.canvasToken ? { canvasId: { startsWith: 'demo-' } } : undefined,
     },
     orderBy: { dueDate: 'asc' },
   });
-  res.json(assignments);
+
+  const domain = req.user.canvasDomain;
+  const withUrls = assignments.map(a => ({
+    ...a,
+    canvasUrl: a.canvasUrl ||
+      (domain ? `https://${domain}/courses/${a.courseId}/assignments/${a.canvasId}` : null),
+  }));
+
+  res.json(withUrls);
 });
 
 // Manually trigger Canvas sync
