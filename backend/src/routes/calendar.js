@@ -60,8 +60,11 @@ router.get('/events', auth, async (req, res) => {
     })),
     ...canvasAssignments.map(a => {
       const due = a.dueDate ? new Date(a.dueDate) : null;
-      // Canvas sometimes stores due dates as exactly midnight UTC when no time was set
       const isMidnight = due && due.getUTCHours() === 0 && due.getUTCMinutes() === 0 && due.getUTCSeconds() === 0;
+      const canvasUrl = a.canvasUrl ||
+        (req.user.canvasDomain
+          ? `https://${req.user.canvasDomain}/courses/${a.courseId}/assignments/${a.canvasId}`
+          : null);
       return {
         id: `canvas-${a.id}`,
         title: a.title,
@@ -71,7 +74,7 @@ router.get('/events', auth, async (req, res) => {
         color: '#f59e0b',
         allDay: isMidnight,
         dueDate: due,
-        data: a,
+        data: { ...a, canvasUrl },
       };
     }),
   ];

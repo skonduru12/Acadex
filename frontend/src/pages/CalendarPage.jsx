@@ -4,7 +4,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, ExternalLink } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -151,7 +151,6 @@ export default function CalendarPage() {
             </div>
             <div className="space-y-1.5 text-sm text-gray-400">
               <p>Type: <span className="text-gray-200 capitalize">{selectedEvent.type === 'canvas' ? 'Canvas Assignment' : selectedEvent.type}</span></p>
-              {/* Canvas and task events only have a due date — show "Due" not "Start/End" */}
               {['canvas', 'task', 'test'].includes(selectedEvent.type) && selectedEvent.start && (
                 <p>Due: <span className="text-gray-200">{
                   selectedEvent.allDay
@@ -162,7 +161,6 @@ export default function CalendarPage() {
               {selectedEvent.data?.courseName && (
                 <p>Course: <span className="text-gray-200">{selectedEvent.data.courseName}</span></p>
               )}
-              {/* Time blocks and Google events show start/end */}
               {['block', 'google'].includes(selectedEvent.type) && selectedEvent.start && (
                 <p>Start: <span className="text-gray-200">{format(new Date(selectedEvent.start), 'MMM d · h:mm a')}</span></p>
               )}
@@ -170,6 +168,16 @@ export default function CalendarPage() {
                 <p>End: <span className="text-gray-200">{format(new Date(selectedEvent.end), 'MMM d · h:mm a')}</span></p>
               )}
             </div>
+            {selectedEvent.type === 'canvas' && selectedEvent.data?.canvasUrl && (
+              <a
+                href={selectedEvent.data.canvasUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary w-full mt-4 text-sm flex items-center justify-center gap-2"
+              >
+                <ExternalLink size={14} /> Open in Canvas
+              </a>
+            )}
             {selectedEvent.type === 'block' && (
               <button
                 onClick={() => deleteBlock.mutate(selectedEvent.data.id)}

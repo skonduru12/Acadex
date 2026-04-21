@@ -80,6 +80,7 @@ model CanvasAssignment {
   courseId    String
   pointsPossible Float?
   submissionType String?
+  canvasUrl   String?
   completed   Boolean  @default(false)
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)

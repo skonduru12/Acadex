@@ -67,6 +67,7 @@ async function syncCanvasAssignments(user) {
             courseId: String(course.id),
             pointsPossible: assignment.points_possible || null,
             submissionType: assignment.submission_types?.join(', ') || null,
+            canvasUrl: assignment.html_url || null,
             completed: assignment.submission?.workflow_state === 'submitted' ||
                        assignment.submission?.workflow_state === 'graded',
             userId: user.id,
@@ -79,6 +80,7 @@ async function syncCanvasAssignments(user) {
             dueDate: assignment.due_at ? new Date(assignment.due_at) : null,
             courseName: course.name,
             pointsPossible: assignment.points_possible || null,
+            canvasUrl: assignment.html_url || null,
             completed: assignment.submission?.workflow_state === 'submitted' ||
                        assignment.submission?.workflow_state === 'graded',
             syncedAt: new Date(),
