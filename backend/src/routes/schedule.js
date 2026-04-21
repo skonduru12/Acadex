@@ -10,34 +10,107 @@ const prisma = new PrismaClient();
 function enforceTestDates(weeklySchedule, tests) {
   if (!tests || !tests.length) return weeklySchedule;
 
-  // Map each test subject (lower) -> midnight of test day
-  const testDayMap = tests.map(t => ({
-    keywords: t.subject.toLowerCase().split(/\s+/),
-    cutoff: (() => { const d = new Date(t.date); d.setHours(0,0,0,0); return d; })(),
-  }));
+  const testCutoffs = tests.map(t => {
+    const d = new Date(t.date); d.setHours(0, 0, 0, 0); return d;
+  });
 
   const filtered = (weeklySchedule || []).map(day => {
-    // Append T00:00:00 so JS parses as local time, not UTC midnight (which shifts by timezone)
+    // Append T00:00:00 so JS parses as local time, not UTC midnight
     const dayDate = new Date(day.date + 'T00:00:00');
     dayDate.setHours(0, 0, 0, 0);
 
     const tasks = (day.tasks || day.sessions || []).filter(task => {
       if (task.type !== 'test_prep') return true;
-      const titleLower = task.title.toLowerCase();
-      for (const { keywords, cutoff } of testDayMap) {
-        // Match if title contains any keyword from the test subject
-        const matches = keywords.some(k => k.length > 2 && titleLower.includes(k));
-        if (matches && dayDate >= cutoff) return false;
-        // Also remove any test_prep on/after the cutoff even if no keyword match
-        if (!matches && dayDate >= cutoff) return false;
-      }
-      return true;
+      // Remove if on/after ANY test's cutoff date
+      return !testCutoffs.some(cutoff => dayDate >= cutoff);
     });
 
     return { ...day, tasks };
   }).filter(day => (day.tasks || []).length > 0);
 
   return filtered;
+}
+
+// Hard-enforce: ensure each test has exactly estimatedStudyHours sessions (1h each)
+function ensureStudyHours(weeklySchedule, tests, currentDate) {
+  if (!tests || !tests.length) return weeklySchedule;
+
+  // Build mutable map: date string -> day object with tasks array
+  const dayMap = {};
+  for (const day of (weeklySchedule || [])) {
+    dayMap[day.date] = { ...day, tasks: [...(day.tasks || day.sessions || [])] };
+  }
+
+  const now = new Date(currentDate);
+  now.setHours(0, 0, 0, 0);
+
+  // Spread study times across different hours so days with multiple sessions look natural
+  const studySlots = [
+    { start: '4:00 PM', end: '5:00 PM' },
+    { start: '5:00 PM', end: '6:00 PM' },
+    { start: '6:00 PM', end: '7:00 PM' },
+    { start: '7:00 PM', end: '8:00 PM' },
+  ];
+
+  for (const test of tests) {
+    const testCutoff = new Date(test.date);
+    testCutoff.setHours(0, 0, 0, 0);
+
+    const keywords = test.subject.toLowerCase().split(/\s+/).filter(k => k.length > 2);
+    const neededSessions = Math.ceil(test.estimatedStudyHours);
+
+    // Count existing prep sessions before the test cutoff
+    let existingCount = 0;
+    for (const [dateStr, day] of Object.entries(dayMap)) {
+      const d = new Date(dateStr + 'T00:00:00');
+      d.setHours(0, 0, 0, 0);
+      if (d >= testCutoff) continue;
+      for (const s of day.tasks) {
+        if (s.type !== 'test_prep') continue;
+        const tl = s.title.toLowerCase();
+        if (keywords.some(k => tl.includes(k))) existingCount++;
+      }
+    }
+
+    const toAdd = neededSessions - existingCount;
+    if (toAdd <= 0) continue;
+
+    // Fill missing sessions going backwards from day before exam
+    let added = 0;
+    const checkDate = new Date(testCutoff);
+    checkDate.setDate(checkDate.getDate() - 1);
+
+    while (added < toAdd && checkDate >= now) {
+      // toISOString gives UTC; since checkDate is local midnight (UTC+offset),
+      // use toLocaleDateString to get correct local date string
+      const dateStr = [
+        checkDate.getFullYear(),
+        String(checkDate.getMonth() + 1).padStart(2, '0'),
+        String(checkDate.getDate()).padStart(2, '0'),
+      ].join('-');
+
+      if (!dayMap[dateStr]) {
+        dayMap[dateStr] = { date: dateStr, tasks: [] };
+      }
+      const day = dayMap[dateStr];
+
+      if (day.tasks.length < 4) {
+        const slot = studySlots[added % studySlots.length];
+        day.tasks.push({
+          title: `${test.subject} — Study Session`,
+          start_time: slot.start,
+          end_time: slot.end,
+          type: 'test_prep',
+          priority: ['critical', 'high'].includes(test.importanceLevel) ? 'high' : 'medium',
+        });
+        added++;
+      }
+
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+  }
+
+  return Object.values(dayMap).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 // Get latest schedule
@@ -91,13 +164,15 @@ router.post('/generate', auth, async (req, res) => {
       currentDate: now.toISOString(),
     });
 
-    // Hard-enforce test date constraints regardless of what the AI generated
-    const weekPlan = {
-      ...raw,
-      weekly_schedule: enforceTestDates(raw.weekly_schedule || raw.month_plan, tests),
-    };
+    // Step 1: strip any test_prep on/after exam date
+    const enforced = enforceTestDates(raw.weekly_schedule || raw.month_plan, tests);
 
-    // Save schedule — upsert the latest schedule for this user
+    // Step 2: guarantee exactly estimatedStudyHours sessions per test
+    const weeklySchedule = ensureStudyHours(enforced, tests, now.toISOString());
+
+    const weekPlan = { ...raw, weekly_schedule: weeklySchedule };
+
+    // Save — upsert the latest schedule for this user
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const existing = await db.schedule.findFirst({
       where: { userId: req.user.id },
@@ -106,15 +181,8 @@ router.post('/generate', auth, async (req, res) => {
 
     const saved = await db.schedule.upsert({
       where: { id: existing?.id || 'new' },
-      create: {
-        weekStart: monthStart,
-        weekPlan: JSON.stringify(weekPlan),
-        userId: req.user.id,
-      },
-      update: {
-        weekStart: monthStart,
-        weekPlan: JSON.stringify(weekPlan),
-      },
+      create: { weekStart: monthStart, weekPlan: JSON.stringify(weekPlan), userId: req.user.id },
+      update: { weekStart: monthStart, weekPlan: JSON.stringify(weekPlan) },
     });
 
     res.json({ ...saved, weekPlan });
