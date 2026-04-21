@@ -17,17 +17,18 @@ OBJECTIVE: Create a day-by-day schedule that maximizes productivity, minimizes s
 
 CRITICAL RULES — follow strictly:
 1. NEVER schedule any task during blocked times. Blocked times are sacred — zero exceptions.
-2. Assignments must be FULLY completed before their due date (not on the due date).
-3. ONLY add test_prep sessions when there is an actual test — never add "study" or "review" sessions otherwise.
-4. Break tasks into 30–90 min chunks. Large tasks span multiple days.
-5. Start assignments at least 2–3 days before deadline.
-6. For tests: use spaced repetition — multiple prep sessions spread across days leading up to the test.
+2. TESTS: The test date is the EXAM DAY itself. ALL test_prep sessions must be on days STRICTLY BEFORE the test date. NEVER schedule any prep on the test date or after it. Count backwards: last prep session = day before test, first prep session = 7 days before test.
+3. ASSIGNMENTS: All work sessions must be completed STRICTLY BEFORE the due date — never on the due date, never after.
+4. ONLY add test_prep sessions when a test exists — never add study/review sessions for no reason.
+5. Break tasks into 30–90 min chunks. Large tasks span multiple days.
+6. Start assignments at least 2–3 days before deadline.
 7. Schedule hardest tasks during peak hours (4:00 PM–8:00 PM PST). Easier tasks at other times.
-8. NEVER exceed 6 hours of work per day. Max 4 sessions per day. Include short breaks between sessions.
+8. NEVER exceed 6 hours of work per day. Max 4 sessions per day.
 9. Never schedule past 10:30 PM. Working hours: 8:00 AM–10:30 PM PST only.
 10. Only output days that have tasks. Skip completely empty days.
 11. ALL times MUST be 12-hour PST format: "9:00 AM", "4:30 PM", "10:00 PM" — NEVER 24-hour time.
-12. If workload is too heavy, redistribute to earlier days and flag it in insights.
+12. NEVER schedule during blocked times. Check every single session against every blocked time before including it.
+13. If workload is too heavy, redistribute to earlier days and flag it in insights.
 
 Output ONLY valid JSON, no markdown, no explanation:
 {
@@ -103,9 +104,9 @@ function buildUserPrompt({ tasks, tests, timeBlocks, canvasAssignments, currentD
   return `TODAY (PST): ${pstNow}
 Plan the next 14 days. Peak productivity: 4:00 PM–8:00 PM PST. Max 6 hrs/day.
 
-=== TESTS — add test_prep sessions ONLY for these ===
+=== TESTS — schedule prep sessions ONLY on days BEFORE the exam date ===
 ${tests.length ? tests.map(t =>
-  `• "${t.subject}" | Date: ${fmtDate(t.date)} | Importance: ${t.importanceLevel}/5 | Prep needed: ${t.estimatedStudyHours}h`
+  `• "${t.subject}" | EXAM DATE: ${fmtDate(t.date)} (this is the test day — prep must be BEFORE this date) | Importance: ${t.importanceLevel}/5 | Prep needed: ${t.estimatedStudyHours}h`
 ).join('\n') : 'NONE — do NOT add any study/review/test_prep sessions at all'}
 
 === CANVAS ASSIGNMENTS — finish at least 1 day BEFORE due date ===
