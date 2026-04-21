@@ -78,4 +78,10 @@ router.post('/generate', auth, async (req, res) => {
   }
 });
 
+// Delete schedule
+router.delete('/', auth, async (req, res) => {
+  await prisma.schedule.deleteMany({ where: { userId: req.user.id } });
+  res.json({ success: true });
+});
+
 module.exports = router;

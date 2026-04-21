@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Sparkles, RefreshCw, CalendarDays, Clock, ChevronRight } from 'lucide-react';
+import { Sparkles, RefreshCw, CalendarDays, Clock, ChevronRight, Trash2 } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns';
@@ -60,6 +60,15 @@ export default function SchedulePage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete('/schedule'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['schedule'] });
+      toast.success('Schedule deleted');
+    },
+    onError: () => toast.error('Failed to delete schedule'),
+  });
+
   // Support both month_plan (new) and week_plan (old) formats
   const rawPlan = schedule?.weekPlan;
   const days = (rawPlan?.month_plan || rawPlan?.week_plan || [])
@@ -91,16 +100,28 @@ export default function SchedulePage() {
               : 'Generate a personalized 30-day study plan'}
           </p>
         </div>
-        <button
-          onClick={() => generateMutation.mutate()}
-          disabled={generateMutation.isPending}
-          className="btn-primary flex items-center gap-2 shrink-0"
-        >
-          {generateMutation.isPending
-            ? <RefreshCw size={15} className="animate-spin" />
-            : <Sparkles size={15} />}
-          {generateMutation.isPending ? 'Generating...' : 'Generate AI Schedule'}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {days.length > 0 && (
+            <button
+              onClick={() => { if (confirm('Delete your entire schedule?')) deleteMutation.mutate(); }}
+              disabled={deleteMutation.isPending}
+              className="btn-danger flex items-center gap-2"
+            >
+              <Trash2 size={15} />
+              Delete Schedule
+            </button>
+          )}
+          <button
+            onClick={() => generateMutation.mutate()}
+            disabled={generateMutation.isPending}
+            className="btn-primary flex items-center gap-2"
+          >
+            {generateMutation.isPending
+              ? <RefreshCw size={15} className="animate-spin" />
+              : <Sparkles size={15} />}
+            {generateMutation.isPending ? 'Generating...' : 'Generate AI Schedule'}
+          </button>
+        </div>
       </div>
 
       {/* Legend */}
