@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Edit2, Check, X, Filter } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Filter, ExternalLink } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -23,6 +23,7 @@ const emptyForm = { title: '', description: '', deadline: '', priority: 'medium'
 export default function TasksPage() {
   const [showModal, setShowModal] = useState(false);
   const [editTask, setEditTask] = useState(null);
+  const [selectedCanvas, setSelectedCanvas] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [filter, setFilter] = useState('all');
   const qc = useQueryClient();
@@ -115,7 +116,7 @@ export default function TasksPage() {
           </h2>
           <div className="space-y-2">
             {canvasTasks.filter(a => !a.completed).map(a => (
-              <div key={a.id} className="card flex items-center gap-3 py-3">
+              <div key={a.id} className="card flex items-center gap-3 py-3 cursor-pointer hover:border-yellow-400/30 transition-colors" onClick={() => setSelectedCanvas(a)}>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-200 truncate">{a.title}</p>
                   <p className="text-xs text-gray-500">{a.courseName}{a.dueDate ? ` · due ${formatDistanceToNow(new Date(a.dueDate), { addSuffix: true })}` : ''}</p>
@@ -175,6 +176,43 @@ export default function TasksPage() {
           </div>
         )}
       </div>
+
+      {/* Canvas assignment detail popup */}
+      {selectedCanvas && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectedCanvas(null)}>
+          <div className="card w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="font-semibold text-white pr-4">{selectedCanvas.title}</h3>
+              <button onClick={() => setSelectedCanvas(null)} className="text-gray-500 hover:text-gray-300 shrink-0"><X size={16} /></button>
+            </div>
+            <div className="space-y-1.5 text-sm text-gray-400">
+              <p>Course: <span className="text-gray-200">{selectedCanvas.courseName}</span></p>
+              {selectedCanvas.dueDate && (
+                <p>Due: <span className="text-gray-200">{format(new Date(selectedCanvas.dueDate), 'MMM d, yyyy · h:mm a')}</span></p>
+              )}
+              {selectedCanvas.pointsPossible != null && (
+                <p>Points: <span className="text-gray-200">{selectedCanvas.pointsPossible}</span></p>
+              )}
+              {selectedCanvas.submissionType && (
+                <p>Submission: <span className="text-gray-200 capitalize">{selectedCanvas.submissionType}</span></p>
+              )}
+              {selectedCanvas.description && (
+                <p className="text-gray-400 text-xs mt-2 leading-relaxed line-clamp-4">{selectedCanvas.description}</p>
+              )}
+            </div>
+            {selectedCanvas.canvasUrl && (
+              <a
+                href={selectedCanvas.canvasUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary w-full mt-4 text-sm flex items-center justify-center gap-2"
+              >
+                <ExternalLink size={14} /> Open in Canvas
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       {showModal && (
