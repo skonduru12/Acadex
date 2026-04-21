@@ -122,26 +122,51 @@ async function generateWithOllama(promptData) {
   }
 }
 
-// ── Main export ──────────────────────────────────────────────────────────────
-async function generateWeeklySchedule(promptData) {
-  let rawText;
+// Returns true only for a real-looking Groq key (they start with "gsk_")
+function isValidGroqKey(key) {
+  return typeof key === 'string' && key.startsWith('gsk_') && key.length > 10;
+}
 
-  if (process.env.GROQ_API_KEY) {
-    console.log('[AI] Using Groq (LLaMA 3)');
-    rawText = await generateWithGroq(promptData);
-  } else {
-    const model = process.env.OLLAMA_MODEL || 'llama3.1';
-    const url = process.env.OLLAMA_URL || 'http://localhost:11434';
-    console.log(`[AI] Using Ollama (${model}) at ${url}`);
-    rawText = await generateWithOllama(promptData);
-  }
-
-  // Extract JSON — strip any accidental markdown fences
+function extractJSON(rawText) {
   const cleaned = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('LLaMA returned invalid schedule format. Try a larger model or retry.');
-
+  if (!jsonMatch) throw new Error('AI returned invalid schedule format. Try a larger model or retry.');
   return JSON.parse(jsonMatch[0]);
+}
+
+// ── Main export ──────────────────────────────────────────────────────────────
+async function generateWeeklySchedule(promptData) {
+  const groqKey = process.env.GROQ_API_KEY;
+  const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.1';
+
+  // Try Groq first if a real key is configured
+  if (isValidGroqKey(groqKey)) {
+    console.log('[AI] Using Groq (LLaMA 3)');
+    try {
+      const rawText = await generateWithGroq(promptData);
+      return extractJSON(rawText);
+    } catch (err) {
+      console.warn('[AI] Groq failed, falling back to Ollama:', err.message);
+    }
+  }
+
+  // Try Ollama
+  try {
+    console.log(`[AI] Using Ollama (${ollamaModel}) at ${ollamaUrl}`);
+    const rawText = await generateWithOllama(promptData);
+    return extractJSON(rawText);
+  } catch (err) {
+    console.error('[AI] Ollama also failed:', err.message);
+  }
+
+  // Neither provider worked — give the user clear setup instructions
+  throw new Error(
+    'No AI provider is configured. To fix this:\n' +
+    '  Option A (Groq — free cloud): Sign up at https://console.groq.com, copy your API key, ' +
+    'and set GROQ_API_KEY=gsk_... in backend/.env\n' +
+    '  Option B (Ollama — local): Install from https://ollama.com, then run: ollama pull llama3.1'
+  );
 }
 
 module.exports = { generateWeeklySchedule };

@@ -40,7 +40,14 @@ export default function Dashboard() {
       qc.invalidateQueries({ queryKey: ['schedule'] });
       toast.success('AI schedule generated!');
     },
-    onError: (err) => toast.error(err.error || 'Failed to generate schedule'),
+    onError: (err) => {
+      const msg = err.error || err.message || 'Failed to generate schedule';
+      if (msg.includes('No AI provider')) {
+        toast.error('No AI provider configured. Add a GROQ_API_KEY (free at console.groq.com) or install Ollama locally.', { duration: 8000 });
+      } else {
+        toast.error(msg, { duration: 6000 });
+      }
+    },
   });
 
   const completeTask = useMutation({
