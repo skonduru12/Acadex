@@ -30,7 +30,7 @@ export default function Sidebar() {
       <div className="p-5 border-b border-gray-800">
         <div className="flex items-center gap-3">
           <NexvoraLogo size={36} color={accentColor} />
-          <span className="text-lg font-bold text-white tracking-tight">Nexvora</span>
+          <span className="text-lg font-bold text-white tracking-tight">Acadex</span>
         </div>
         <p className="text-xs text-gray-500 mt-1">AI Student Hub</p>
       </div>
