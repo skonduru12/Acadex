@@ -11,18 +11,44 @@ const axios = require('axios');
  * Ollama local:   https://ollama.com  →  `ollama pull llama3.1`
  */
 
-const SYSTEM_PROMPT = `You are an academic planner. Generate a 14-day study plan.
+const SYSTEM_PROMPT = `You are an advanced productivity planning AI. Generate a realistic optimized schedule for a student.
 
-RULES:
-- Times in 12-hour PST: "9:00 AM", "2:30 PM" — never 24-hour
-- Hours 8:00 AM–10:00 PM only. Max 3 sessions/day. Skip empty days.
-- NEVER schedule during blocked times.
-- Tests: 1-hour daily prep starting 7 days before. Label "Study [Subject] Day N". 2-hour review the day before.
-- Assignments: 1-2 sessions 2-4 days before due. Label "Work on [Title]".
-- Tasks: schedule by deadline/priority.
+OBJECTIVE: Create a day-by-day schedule that maximizes productivity, minimizes stress, and ensures all deadlines are met EARLY.
 
-Output ONLY this JSON (no markdown):
-{"month_plan":[{"date":"YYYY-MM-DD","sessions":[{"title":"str","start_time":"9:00 AM","end_time":"10:00 AM","type":"test_prep|assignment|study|personal"}]}]}`;
+CRITICAL RULES — follow strictly:
+1. NEVER schedule any task during blocked times. Blocked times are sacred — zero exceptions.
+2. Assignments must be FULLY completed before their due date (not on the due date).
+3. ONLY add test_prep sessions when there is an actual test — never add "study" or "review" sessions otherwise.
+4. Break tasks into 30–90 min chunks. Large tasks span multiple days.
+5. Start assignments at least 2–3 days before deadline.
+6. For tests: use spaced repetition — multiple prep sessions spread across days leading up to the test.
+7. Schedule hardest tasks during peak hours (4:00 PM–8:00 PM PST). Easier tasks at other times.
+8. NEVER exceed 6 hours of work per day. Max 4 sessions per day. Include short breaks between sessions.
+9. Never schedule past 10:30 PM. Working hours: 8:00 AM–10:30 PM PST only.
+10. Only output days that have tasks. Skip completely empty days.
+11. ALL times MUST be 12-hour PST format: "9:00 AM", "4:30 PM", "10:00 PM" — NEVER 24-hour time.
+12. If workload is too heavy, redistribute to earlier days and flag it in insights.
+
+Output ONLY valid JSON, no markdown, no explanation:
+{
+  "weekly_schedule": [
+    {
+      "date": "YYYY-MM-DD",
+      "tasks": [
+        {
+          "title": "Task name",
+          "start_time": "4:00 PM",
+          "end_time": "5:30 PM",
+          "type": "assignment|test_prep|personal",
+          "priority": "high|medium|low"
+        }
+      ]
+    }
+  ],
+  "insights": [
+    "Short explanation of key scheduling decisions or warnings"
+  ]
+}`;
 
 function fmt12(date) {
   return new Date(date).toLocaleString('en-US', {
@@ -42,32 +68,60 @@ function fmtDate(date) {
   });
 }
 
+function expandBlocksForPrompt(blocks, startDate, endDate) {
+  const lines = [];
+  for (const b of blocks) {
+    if (!b.recurring) {
+      lines.push(`• "${b.title}": ${fmtDate(b.startTime)} ${fmt12(b.startTime)} – ${fmt12(b.endTime)}`);
+      continue;
+    }
+    const base = new Date(b.startTime);
+    const duration = new Date(b.endTime) - base;
+    const cur = new Date(startDate);
+    cur.setHours(0, 0, 0, 0);
+    while (cur <= endDate) {
+      const dow = cur.getDay();
+      const match =
+        b.recurring === 'daily' ||
+        (b.recurring === 'weekdays' && dow >= 1 && dow <= 5) ||
+        (b.recurring === 'weekly' && dow === base.getDay());
+      if (match) {
+        const s = new Date(cur);
+        s.setHours(base.getHours(), base.getMinutes(), 0, 0);
+        const e = new Date(s.getTime() + duration);
+        lines.push(`• "${b.title}": ${fmtDate(s)} ${fmt12(s)} – ${fmt12(e)}`);
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+  return lines.join('\n') || 'None — no blocked times';
+}
+
 function buildUserPrompt({ tasks, tests, timeBlocks, canvasAssignments, currentDate }) {
   const pstNow = new Date(currentDate).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-  return `Today (PST): ${pstNow}
-Plan the next 14 days.
+  const endDate = new Date(new Date(currentDate).getTime() + 14 * 24 * 60 * 60 * 1000);
+  return `TODAY (PST): ${pstNow}
+Plan the next 14 days. Peak productivity: 4:00 PM–8:00 PM PST. Max 6 hrs/day.
 
-UPCOMING TESTS — schedule daily 1-hour prep sessions for each:
+=== TESTS — add test_prep sessions ONLY for these ===
 ${tests.length ? tests.map(t =>
-  `- Subject: "${t.subject}" | Test date: ${fmtDate(t.date)} | Importance: ${t.importanceLevel} | Estimated prep: ${t.estimatedStudyHours}h total`
-).join('\n') : 'None'}
+  `• "${t.subject}" | Date: ${fmtDate(t.date)} | Importance: ${t.importanceLevel}/5 | Prep needed: ${t.estimatedStudyHours}h`
+).join('\n') : 'NONE — do NOT add any study/review/test_prep sessions at all'}
 
-CANVAS ASSIGNMENTS — schedule work sessions before each due date:
+=== CANVAS ASSIGNMENTS — finish at least 1 day BEFORE due date ===
 ${canvasAssignments.length ? canvasAssignments.map(a =>
-  `- "${a.title}" (${a.courseName}) | Due: ${a.dueDate ? fmtDate(a.dueDate) : 'No due date'}`
+  `• "${a.title}" (${a.courseName}) | Due: ${a.dueDate ? fmtDate(a.dueDate) : 'No due date'}`
 ).join('\n') : 'None'}
 
-PERSONAL TASKS — schedule based on deadline and priority:
+=== PERSONAL TASKS ===
 ${tasks.length ? tasks.map(t =>
-  `- "${t.title}" | Deadline: ${t.deadline ? fmtDate(t.deadline) : 'None'} | Priority: ${t.priority} | Est: ${t.estimatedHours || 1}h`
+  `• "${t.title}" | Deadline: ${t.deadline ? fmtDate(t.deadline) : 'flexible'} | Priority: ${t.priority} | Est: ${t.estimatedHours || 1}h`
 ).join('\n') : 'None'}
 
-BLOCKED TIMES — NEVER schedule sessions during these:
-${timeBlocks.length ? timeBlocks.map(b =>
-  `- "${b.title}": ${fmtDate(b.startTime)} ${fmt12(b.startTime)} – ${fmt12(b.endTime)}`
-).join('\n') : 'None'}
+=== BLOCKED TIMES — NEVER schedule anything during ANY of these ===
+${expandBlocksForPrompt(timeBlocks, new Date(currentDate), endDate)}
 
-Return ONLY the JSON object with month_plan. Use 12-hour PST times. Only include days that have sessions.`;
+Return ONLY the JSON. All times in 12-hour PST. Only include days that have tasks.`;
 }
 
 // ── Groq (free cloud, LLaMA 3 8B Instant) ───────────────────────────────────

@@ -35,7 +35,13 @@ router.post('/generate', auth, async (req, res) => {
         orderBy: { date: 'asc' },
       }),
       db.timeBlock.findMany({
-        where: { userId: req.user.id, startTime: { gte: now, lte: monthFromNow } },
+        where: {
+          userId: req.user.id,
+          OR: [
+            { startTime: { gte: now, lte: monthFromNow } },
+            { recurring: { not: null } },
+          ],
+        },
       }),
       db.canvasAssignment.findMany({
         where: { userId: req.user.id, completed: false },

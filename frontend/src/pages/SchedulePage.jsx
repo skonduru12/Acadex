@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Sparkles, RefreshCw, CalendarDays, Clock, ChevronRight, Trash2 } from 'lucide-react';
+import { Sparkles, RefreshCw, CalendarDays, Clock, ChevronRight, Trash2, Lightbulb } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns';
@@ -14,7 +14,10 @@ const sourceStyles = {
 };
 
 function getStyle(session) {
-  const key = session.source === 'test_prep' ? 'test_prep'
+  const key = session.type === 'test_prep' ? 'test_prep'
+    : session.type === 'assignment' ? 'assignment'
+    : session.type === 'personal' ? 'personal'
+    : session.source === 'test_prep' ? 'test_prep'
     : session.source === 'canvas' ? 'canvas'
     : session.source === 'personal' ? 'personal'
     : session.type || 'study';
@@ -69,11 +72,12 @@ export default function SchedulePage() {
     onError: () => toast.error('Failed to delete schedule'),
   });
 
-  // Support both month_plan (new) and week_plan (old) formats
+  // Support all formats: weekly_schedule (new), month_plan, week_plan (legacy)
   const rawPlan = schedule?.weekPlan;
-  const days = (rawPlan?.month_plan || rawPlan?.week_plan || [])
-    .filter(d => (d.sessions || d.tasks || []).length > 0)
+  const days = (rawPlan?.weekly_schedule || rawPlan?.month_plan || rawPlan?.week_plan || [])
+    .filter(d => (d.tasks || d.sessions || []).length > 0)
     .sort((a, b) => a.date.localeCompare(b.date));
+  const insights = rawPlan?.insights || [];
 
   // Group days by month
   const byMonth = days.reduce((acc, day) => {
@@ -123,6 +127,19 @@ export default function SchedulePage() {
           </button>
         </div>
       </div>
+
+      {/* Insights */}
+      {insights.length > 0 && (
+        <div className="card border border-yellow-500/20 bg-yellow-500/5 space-y-2">
+          <div className="flex items-center gap-2 mb-1">
+            <Lightbulb size={15} className="text-yellow-400" />
+            <span className="text-xs font-semibold text-yellow-300 uppercase tracking-widest">AI Insights</span>
+          </div>
+          {insights.map((note, i) => (
+            <p key={i} className="text-sm text-gray-300 leading-relaxed">• {note}</p>
+          ))}
+        </div>
+      )}
 
       {/* Legend */}
       {days.length > 0 && (
@@ -185,7 +202,7 @@ export default function SchedulePage() {
 
                 <div className="space-y-2">
                   {monthDays.map((day) => {
-                    const sessions = day.sessions || day.tasks || [];
+                    const sessions = day.tasks || day.sessions || [];
                     let date;
                     try { date = parseISO(day.date); } catch { return null; }
                     const past = isPast(date) && !isToday(date);
