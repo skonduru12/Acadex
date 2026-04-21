@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String
+  picture           String?
+  googleId          String?   @unique
+  googleAccessToken  String?
+  googleRefreshToken String?
+  canvasToken       String?
+  canvasDomain      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tasks      Task[]
+  tests      Test[]
+  timeBlocks TimeBlock[]
+  schedules  Schedule[]
+  canvasAssignments CanvasAssignment[]
+}
+
+model Task {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  deadline        DateTime?
+  priority        String   @default("medium")
+  estimatedHours  Float    @default(1)
+  completed       Boolean  @default(false)
+  type            String   @default("personal")
+  tags            String   @default("[]")
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Test {
+  id                String   @id @default(cuid())
+  subject           String
+  date              DateTime
+  importanceLevel   String   @default("medium")
+  estimatedStudyHours Float  @default(3)
+  notes             String?
+  completed         Boolean  @default(false)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model TimeBlock {
+  id        String   @id @default(cuid())
+  title     String
+  startTime DateTime
+  endTime   DateTime
+  recurring String?
+  color     String   @default("#6366f1")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CanvasAssignment {
+  id          String   @id @default(cuid())
+  canvasId    String
+  title       String
+  description String?
+  dueDate     DateTime?
+  courseName  String
+  courseId    String
+  pointsPossible Float?
+  submissionType String?
+  completed   Boolean  @default(false)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncedAt    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([canvasId, userId])
+}
+
+model Schedule {
+  id        String   @id @default(cuid())
+  weekStart DateTime
+  weekPlan  String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

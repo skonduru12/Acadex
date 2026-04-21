@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx prisma *)",
+      "Bash(node prisma/seed.js)",
+      "Bash(node src/index.js)",
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(curl -s -X POST http://localhost:3001/api/auth/demo)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npm uninstall *)",
+      "Bash(ollama --version)",
+      "Bash(winget --version)",
+      "Bash(winget install *)",
+      "Bash(powershell -Command \"\\(Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum\\).sum / 1GB\")",
+      "Bash(powershell -Command \"Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM | Format-List\")",
+      "Read(//c/Users/amstudent/AppData/Local/Programs/**)",
+      "Read(//c/Program Files/**)",
+      "Bash(export PATH=\"$PATH:/c/Users/amstudent/AppData/Local/Programs/Ollama\")",
+      "Bash(ollama serve *)",
+      "Bash(curl -s http://localhost:11434/api/tags)",
+      "Bash(python -c \"import sys,json; models=json.load\\(sys.stdin\\).get\\('models',[]\\); print\\('Models installed:',len\\(models\\)\\); [print\\(' -',m['name']\\) for m in models]\")",
+      "Bash(ollama pull *)",
+      "Bash(echo \"Pull started in background, PID: $!\")",
+      "Bash(ollama list *)",
+      "Bash(export PATH=\"$PATH:/c/Users/amstudent/AppData/Local/Programs/Ollama\" ollama list 2)",
+      "Bash(python -c \"import sys,json; r=json.load\\(sys.stdin\\); print\\('Response:', r['response'][:200]\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(netstat -ano)",
+      "Bash(awk '{print $5}')",
+      "Bash(xargs -I{} taskkill //PID {} //F sleep 2 cd C:/Users/amstudent/Hackathon/backend)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI\")",
+      "Bash(gh auth *)"
+    ]
+  }
+}
