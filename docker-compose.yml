@@ -1,17 +1,29 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: acadex
+      POSTGRES_PASSWORD: acadex_dev
+      POSTGRES_DB: acadex
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
   backend:
     build: ./backend
     ports:
       - '3001:3001'
+    depends_on:
+      - postgres
     environment:
-      DATABASE_URL: file:./acadex.db
+      DATABASE_URL: postgresql://acadex:acadex_dev@postgres:5432/acadex
       JWT_SECRET: ${JWT_SECRET}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL}
       FRONTEND_URL: http://localhost:5173
     volumes:
       - ./backend/prisma:/app/prisma
@@ -24,3 +36,6 @@ services:
       VITE_API_URL: http://localhost:3001
     depends_on:
       - backend
+
+volumes:
+  pgdata:
