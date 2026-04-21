@@ -23,7 +23,7 @@ router.post('/generate', auth, async (req, res) => {
     const db = new PrismaClient();
 
     const now = new Date();
-    const monthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const monthFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
     const [tasks, tests, timeBlocks, canvasAssignments] = await Promise.all([
       db.task.findMany({

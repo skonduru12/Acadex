@@ -97,7 +97,7 @@ export default function SchedulePage() {
           <p className="text-sm text-gray-400 mt-1">
             {totalSessions > 0
               ? `${totalSessions} sessions planned across ${days.length} days`
-              : 'Generate a personalized 30-day study plan'}
+              : 'Generate a personalized 14-day study plan'}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -134,11 +134,21 @@ export default function SchedulePage() {
       )}
 
       {/* Content */}
+      {generateMutation.isPending && (
+        <div className="card flex items-center gap-4 py-5 px-6 border border-brand-500/20 bg-brand-500/5">
+          <RefreshCw size={20} className="animate-spin text-brand-400 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-brand-300">AI is building your schedule…</p>
+            <p className="text-xs text-gray-500 mt-0.5">Analyzing your tests, assignments, and tasks — usually takes 5–10 seconds</p>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
           <RefreshCw size={24} className="animate-spin text-gray-500" />
         </div>
-      ) : days.length === 0 ? (
+      ) : days.length === 0 && !generateMutation.isPending ? (
         <div className="card flex flex-col items-center justify-center py-24 gap-4 text-center">
           <div className="w-16 h-16 rounded-2xl bg-brand-500/10 flex items-center justify-center">
             <CalendarDays size={32} className="text-brand-400" />

@@ -11,52 +11,18 @@ const axios = require('axios');
  * Ollama local:   https://ollama.com  →  `ollama pull llama3.1`
  */
 
-const SYSTEM_PROMPT = `You are an expert academic planner. Generate a smart 30-day study and assignment plan for a student.
+const SYSTEM_PROMPT = `You are an academic planner. Generate a 14-day study plan.
 
 RULES:
-- ALL times must be in 12-hour PST format: "9:00 AM", "2:30 PM", "10:00 PM" — never 24-hour/military time
-- Working hours: 8:00 AM to 10:00 PM PST only
-- Max 6 hours of productive work per day, max 4 sessions per day
-- Never schedule during blocked times
-- Only output days that actually have sessions (skip empty days)
+- Times in 12-hour PST: "9:00 AM", "2:30 PM" — never 24-hour
+- Hours 8:00 AM–10:00 PM only. Max 3 sessions/day. Skip empty days.
+- NEVER schedule during blocked times.
+- Tests: 1-hour daily prep starting 7 days before. Label "Study [Subject] Day N". 2-hour review the day before.
+- Assignments: 1-2 sessions 2-4 days before due. Label "Work on [Title]".
+- Tasks: schedule by deadline/priority.
 
-FOR TESTS (highest priority):
-- Start prep sessions at least 7 days before the test date
-- Schedule exactly 1 hour per day (e.g., "8:00 PM to 9:00 PM") leading up to the test
-- Add a 2-hour review session the day before the test
-- Label each session: "Study for [Subject] — Day X"
-
-FOR CANVAS ASSIGNMENTS:
-- Schedule work sessions 3–5 days before the due date
-- Break larger assignments into multiple 1–2 hour sessions across different days
-- Label: "Work on [Assignment Title] ([Course])"
-
-FOR PERSONAL TASKS:
-- Schedule based on deadline and priority
-- High priority = start 5+ days before; medium = 3 days; low = 1–2 days before
-
-BALANCE:
-- Spread work evenly — never stack more than 4 sessions on one day
-- Morning slots (8–12) for focused study, evening (6–10 PM) for review
-
-Output ONLY valid JSON, no markdown, no explanation:
-{
-  "month_plan": [
-    {
-      "date": "YYYY-MM-DD",
-      "sessions": [
-        {
-          "title": "string",
-          "start_time": "9:00 AM",
-          "end_time": "10:00 AM",
-          "type": "study|assignment|review|personal",
-          "source": "canvas|personal|test_prep",
-          "priority": "high|medium|low"
-        }
-      ]
-    }
-  ]
-}`;
+Output ONLY this JSON (no markdown):
+{"month_plan":[{"date":"YYYY-MM-DD","sessions":[{"title":"str","start_time":"9:00 AM","end_time":"10:00 AM","type":"test_prep|assignment|study|personal"}]}]}`;
 
 function fmt12(date) {
   return new Date(date).toLocaleString('en-US', {
@@ -79,7 +45,7 @@ function fmtDate(date) {
 function buildUserPrompt({ tasks, tests, timeBlocks, canvasAssignments, currentDate }) {
   const pstNow = new Date(currentDate).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
   return `Today (PST): ${pstNow}
-Plan the next 30 days starting from today.
+Plan the next 14 days.
 
 UPCOMING TESTS — schedule daily 1-hour prep sessions for each:
 ${tests.length ? tests.map(t =>
@@ -116,7 +82,7 @@ async function generateWithGroq(promptData) {
         { role: 'user', content: buildUserPrompt(promptData) },
       ],
       temperature: 0.3,
-      max_tokens: 6000,
+      max_tokens: 2000,
       response_format: { type: 'json_object' },
     },
     {
