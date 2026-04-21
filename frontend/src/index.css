@@ -112,10 +112,105 @@
   padding: 0.3rem 0.75rem;
   border-radius: 0.5rem;
 }
+/* ── Event base ── */
 .fc-event {
-  border-radius: 4px;
-  font-size: 0.78rem;
-  padding: 1px 4px;
+  border: none !important;
+  border-radius: 7px !important;
+  padding: 0 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35) !important;
+  cursor: pointer !important;
+  transition: filter 0.12s, transform 0.12s !important;
+  overflow: hidden !important;
+}
+.fc-event:hover {
+  filter: brightness(1.18) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.4) !important;
+}
+
+/* ── Time-grid event (week/day views) ── */
+.fc-custom-block {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px 6px 3px 8px;
+  border-left: 3px solid rgba(255,255,255,0.45);
+  height: 100%;
+  overflow: hidden;
+}
+.fc-custom-time {
+  font-size: 0.62rem;
+  font-weight: 600;
+  opacity: 0.82;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.01em;
+  color: #fff;
+}
+.fc-custom-title {
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+  color: #fff;
+}
+
+/* ── Month-view event pill ── */
+.fc-custom-month {
+  display: flex;
+  align-items: center;
+  padding: 1px 6px 1px 7px;
+  border-left: 3px solid rgba(255,255,255,0.4);
+  overflow: hidden;
+  width: 100%;
+}
+.fc-custom-month .fc-custom-title {
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── +N more link ── */
+.fc-daygrid-more-link {
+  font-size: 0.7rem !important;
+  font-weight: 600 !important;
+  color: #9ca3af !important;
+  padding: 1px 4px !important;
+}
+.fc-daygrid-more-link:hover {
+  color: #f3f4f6 !important;
+  background: rgba(255,255,255,0.08) !important;
+  border-radius: 4px !important;
+}
+
+/* ── Popover ("+more" popup) ── */
+.fc-popover {
+  background: #1f2937 !important;
+  border: 1px solid #374151 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+}
+.fc-popover-header {
+  background: #111827 !important;
+  border-radius: 10px 10px 0 0 !important;
+  padding: 6px 10px !important;
+  font-size: 0.78rem !important;
+  color: #d1d5db !important;
+}
+.fc-popover-body {
+  padding: 6px !important;
+}
+
+/* ── Overlapping events: prevent zero-width collapse ── */
+.fc-timegrid-event-harness {
+  min-width: 0 !important;
+}
+.fc-timegrid-event {
+  min-height: 28px !important;
 }
 
 /* Sidebar background */

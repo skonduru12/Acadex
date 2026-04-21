@@ -143,6 +143,23 @@ export default function CalendarPage() {
           slotMinTime="06:00:00"
           slotMaxTime="24:00:00"
           allDaySlot
+          eventMaxStack={3}
+          eventMinHeight={28}
+          slotDuration="00:30:00"
+          eventContent={(arg) => {
+            const isMonth = arg.view.type === 'dayGridMonth';
+            const bg = arg.event.backgroundColor;
+            return isMonth ? (
+              <div className="fc-custom-month" style={{ borderLeftColor: bg }}>
+                <span className="fc-custom-title">{arg.event.title}</span>
+              </div>
+            ) : (
+              <div className="fc-custom-block" style={{ borderLeftColor: `color-mix(in srgb, ${bg} 60%, white 40%)` }}>
+                {arg.timeText && <span className="fc-custom-time">{arg.timeText}</span>}
+                <span className="fc-custom-title">{arg.event.title}</span>
+              </div>
+            );
+          }}
         />
       </div>
 
