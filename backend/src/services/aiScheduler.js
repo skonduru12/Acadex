@@ -60,9 +60,9 @@ ${timeBlocks.length ? timeBlocks.map(b => `- "${b.title}": ${new Date(b.startTim
 Generate a complete 7-day schedule starting today. Include every day. Return ONLY the JSON object.`;
 }
 
-// ── Groq (free cloud, LLaMA 3 70B) ──────────────────────────────────────────
+// ── Groq (free cloud, LLaMA 3 8B Instant) ───────────────────────────────────
 async function generateWithGroq(promptData) {
-  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  const model = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
   const { data } = await axios.post(
     'https://api.groq.com/openai/v1/chat/completions',
     {
@@ -72,14 +72,15 @@ async function generateWithGroq(promptData) {
         { role: 'user', content: buildUserPrompt(promptData) },
       ],
       temperature: 0.3,
-      max_tokens: 4096,
+      max_tokens: 1500,
+      response_format: { type: 'json_object' },
     },
     {
       headers: {
         Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      timeout: 60000,
+      timeout: 30000,
     }
   );
   return data.choices[0].message.content;
