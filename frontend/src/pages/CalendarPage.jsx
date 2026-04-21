@@ -8,11 +8,13 @@ import { Plus, X } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import useThemeStore from '../store/useThemeStore';
 
 export default function CalendarPage() {
+  const themeColors = useThemeStore((s) => s.colors);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showBlockModal, setShowBlockModal] = useState(false);
-  const [newBlock, setNewBlock] = useState({ title: '', startTime: '', endTime: '', color: '#6366f1' });
+  const [newBlock, setNewBlock] = useState({ title: '', startTime: '', endTime: '', color: themeColors.colorBlock });
   const calendarRef = useRef(null);
   const qc = useQueryClient();
 
@@ -45,16 +47,29 @@ export default function CalendarPage() {
     },
   });
 
-  const calendarEvents = events.map(e => ({
-    id: e.id,
-    title: e.title,
-    start: e.start,
-    end: e.end,
-    allDay: e.allDay,
-    backgroundColor: e.color,
-    borderColor: e.color,
-    extendedProps: { type: e.type, data: e.data },
-  }));
+  // Map event types to user-customizable theme colors
+  const typeColorMap = {
+    task:    themeColors.colorTask,
+    canvas:  themeColors.colorCanvas,
+    test:    themeColors.colorTest,
+    block:   themeColors.colorBlock,
+    google:  themeColors.colorGoogle,
+    personal: themeColors.colorPersonal,
+  };
+
+  const calendarEvents = events.map(e => {
+    const color = typeColorMap[e.type] || e.color;
+    return {
+      id: e.id,
+      title: e.title,
+      start: e.start,
+      end: e.end,
+      allDay: e.allDay,
+      backgroundColor: color,
+      borderColor: color,
+      extendedProps: { type: e.type, data: e.data },
+    };
+  });
 
   const handleEventClick = (info) => {
     const ev = info.event;
@@ -86,11 +101,11 @@ export default function CalendarPage() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-3 text-xs text-gray-400">
             {[
-              { color: '#3b82f6', label: 'Task' },
-              { color: '#ef4444', label: 'Test' },
-              { color: '#f59e0b', label: 'Canvas' },
-              { color: '#6366f1', label: 'Block' },
-              { color: '#8b5cf6', label: 'Google' },
+              { color: themeColors.colorTask,     label: 'Task' },
+              { color: themeColors.colorTest,     label: 'Test' },
+              { color: themeColors.colorCanvas,   label: 'Canvas' },
+              { color: themeColors.colorBlock,    label: 'Block' },
+              { color: themeColors.colorGoogle,   label: 'Google' },
             ].map(({ color, label }) => (
               <span key={label} className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: color }} />

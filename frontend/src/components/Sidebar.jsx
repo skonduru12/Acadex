@@ -22,7 +22,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-60 flex flex-col bg-gray-900 border-r border-gray-800 shrink-0">
+    <aside className="acadex-sidebar w-60 flex flex-col border-r shrink-0">
       {/* Logo */}
       <div className="p-5 border-b border-gray-800">
         <div className="flex items-center gap-2.5">

@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Key, RefreshCw, Check, ExternalLink, Zap, Calendar, BookOpen, Shield } from 'lucide-react';
+import { Key, RefreshCw, Check, ExternalLink, Zap, Calendar, BookOpen, Shield, Palette, RotateCcw } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import useStore from '../store/useStore';
+import useThemeStore, { PRESETS } from '../store/useThemeStore';
 
 export default function Settings() {
-  const { user, setAuth } = useStore();
+  const { user } = useStore();
   const qc = useQueryClient();
+  const { colors, activePreset, applyPreset, setColor, reset } = useThemeStore();
   const [canvasToken, setCanvasToken] = useState('');
   const [canvasDomain, setCanvasDomain] = useState(user?.canvasDomain || '');
   const [saved, setSaved] = useState(false);
@@ -187,6 +189,122 @@ export default function Settings() {
           </div>
         </div>
       </section>
+
+      {/* Appearance */}
+      <section className="card space-y-5">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-white flex items-center gap-2">
+            <Palette size={16} className="text-pink-400" /> Appearance
+          </h2>
+          <button
+            onClick={() => { reset(); toast.success('Reset to default theme'); }}
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            <RotateCcw size={12} /> Reset
+          </button>
+        </div>
+
+        {/* Preset themes */}
+        <div>
+          <p className="label">Theme Presets</p>
+          <div className="grid grid-cols-3 gap-2 mt-1">
+            {Object.entries(PRESETS).map(([key, preset]) => (
+              <button
+                key={key}
+                onClick={() => { applyPreset(key); toast.success(`${preset.name} applied`); }}
+                className="relative flex items-center gap-2.5 p-2.5 rounded-lg border transition-all text-left"
+                style={{
+                  backgroundColor: preset.bgSecondary,
+                  borderColor: activePreset === key ? preset.accent : preset.bgTertiary,
+                  boxShadow: activePreset === key ? `0 0 0 2px ${preset.accent}40` : 'none',
+                }}
+              >
+                {/* Mini color dots */}
+                <div className="flex gap-1 shrink-0">
+                  {[preset.accent, preset.colorTask, preset.colorTest].map((c, i) => (
+                    <span key={i} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />
+                  ))}
+                </div>
+                <span className="text-xs font-medium truncate" style={{ color: activePreset === key ? preset.accent : '#9ca3af' }}>
+                  {preset.name}
+                </span>
+                {activePreset === key && (
+                  <Check size={12} className="ml-auto shrink-0" style={{ color: preset.accent }} />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Background colors */}
+        <div>
+          <p className="label">Background Colors</p>
+          <div className="space-y-2">
+            <ColorRow label="Page Background"  value={colors.bgPrimary}   onChange={v => setColor('bgPrimary', v)} />
+            <ColorRow label="Cards & Sidebar"  value={colors.bgSecondary} onChange={v => setColor('bgSecondary', v)} />
+            <ColorRow label="Inputs & Hovers"  value={colors.bgTertiary}  onChange={v => setColor('bgTertiary', v)} />
+          </div>
+        </div>
+
+        {/* Accent */}
+        <div>
+          <p className="label">Accent Color</p>
+          <ColorRow label="Buttons, Active Nav, Highlights" value={colors.accent} onChange={v => setColor('accent', v)} />
+        </div>
+
+        {/* Event / task colors */}
+        <div>
+          <p className="label">Event & Task Colors</p>
+          <div className="space-y-2">
+            <ColorRow label="Academic Tasks"       value={colors.colorTask}     onChange={v => setColor('colorTask', v)} />
+            <ColorRow label="Personal Tasks"       value={colors.colorPersonal} onChange={v => setColor('colorPersonal', v)} />
+            <ColorRow label="Canvas Assignments"   value={colors.colorCanvas}   onChange={v => setColor('colorCanvas', v)} />
+            <ColorRow label="Tests & Exams"        value={colors.colorTest}     onChange={v => setColor('colorTest', v)} />
+            <ColorRow label="Time Blocks"          value={colors.colorBlock}    onChange={v => setColor('colorBlock', v)} />
+            <ColorRow label="Google Calendar"      value={colors.colorGoogle}   onChange={v => setColor('colorGoogle', v)} />
+          </div>
+        </div>
+
+        {/* Live preview strip */}
+        <div>
+          <p className="label">Preview</p>
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { label: 'Academic', color: colors.colorTask },
+              { label: 'Personal', color: colors.colorPersonal },
+              { label: 'Canvas',   color: colors.colorCanvas },
+              { label: 'Test',     color: colors.colorTest },
+              { label: 'Block',    color: colors.colorBlock },
+              { label: 'Google',   color: colors.colorGoogle },
+            ].map(({ label, color }) => (
+              <span key={label} className="px-3 py-1 rounded-full text-xs font-medium text-white"
+                style={{ backgroundColor: color }}>
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ColorRow({ label, value, onChange }) {
+  return (
+    <div className="flex items-center justify-between py-1.5">
+      <span className="text-sm text-gray-400">{label}</span>
+      <div className="flex items-center gap-2.5">
+        <span className="text-xs font-mono text-gray-500 uppercase">{value}</span>
+        <label className="cursor-pointer relative w-8 h-8 rounded-lg overflow-hidden border-2 border-gray-700 hover:border-gray-500 transition-colors"
+          style={{ backgroundColor: value }}>
+          <input
+            type="color"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+          />
+        </label>
+      </div>
     </div>
   );
 }

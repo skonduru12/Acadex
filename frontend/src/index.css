@@ -2,39 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme CSS variables (set dynamically by useThemeStore) ── */
+:root {
+  --bg-primary:    #030712;
+  --bg-secondary:  #111827;
+  --bg-tertiary:   #1f2937;
+  --accent:        #6366f1;
+  --color-task:    #3b82f6;
+  --color-personal:#10b981;
+  --color-canvas:  #f59e0b;
+  --color-test:    #ef4444;
+  --color-block:   #8b5cf6;
+  --color-google:  #ec4899;
+}
+
 @layer base {
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
+
   body {
-    @apply bg-gray-950 text-gray-100 font-sans antialiased;
+    background-color: var(--bg-primary);
+    @apply text-gray-100 font-sans antialiased;
+    transition: background-color 0.3s ease;
   }
-  ::-webkit-scrollbar {
-    @apply w-1.5;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-gray-900;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-gray-700 rounded-full;
-  }
+
+  ::-webkit-scrollbar { @apply w-1.5; }
+  ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+  ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 9999px; }
 }
 
 @layer components {
   .card {
-    @apply bg-gray-900 border border-gray-800 rounded-xl p-5;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--bg-tertiary);
+    @apply rounded-xl p-5;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
   .btn-primary {
-    @apply bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: var(--accent);
+    @apply text-white px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed;
+    filter: brightness(1);
   }
+  .btn-primary:hover { filter: brightness(1.15); }
+
   .btn-secondary {
-    @apply bg-gray-800 hover:bg-gray-700 text-gray-200 px-4 py-2 rounded-lg font-medium transition-colors;
+    background-color: var(--bg-tertiary);
+    @apply text-gray-200 px-4 py-2 rounded-lg font-medium transition-colors;
   }
+  .btn-secondary:hover { filter: brightness(1.2); }
+
   .btn-danger {
     @apply bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30 px-4 py-2 rounded-lg font-medium transition-colors;
   }
   .input {
-    @apply bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent w-full;
+    background-color: var(--bg-tertiary);
+    border: 1px solid color-mix(in srgb, var(--bg-tertiary) 60%, white 40%);
+    @apply rounded-lg px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent w-full;
+    --tw-ring-color: var(--accent);
+    transition: background-color 0.3s ease;
   }
   .label {
     @apply text-sm font-medium text-gray-400 mb-1 block;
@@ -43,30 +67,35 @@
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
   }
   .sidebar-link {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-gray-800 transition-all cursor-pointer;
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 transition-all cursor-pointer;
+  }
+  .sidebar-link:hover {
+    background-color: var(--bg-tertiary);
+    @apply text-gray-100;
   }
   .sidebar-link.active {
-    @apply text-brand-400 bg-brand-500/10;
+    color: var(--accent);
+    background-color: color-mix(in srgb, var(--accent) 15%, transparent);
   }
 }
 
-/* FullCalendar dark theme overrides */
+/* ── FullCalendar theme overrides using CSS vars ── */
 .fc {
-  --fc-border-color: #374151;
-  --fc-button-bg-color: #374151;
-  --fc-button-border-color: #4b5563;
-  --fc-button-hover-bg-color: #4b5563;
-  --fc-button-hover-border-color: #6b7280;
-  --fc-button-active-bg-color: #6366f1;
-  --fc-button-active-border-color: #6366f1;
+  --fc-border-color: var(--bg-tertiary);
+  --fc-button-bg-color: var(--bg-tertiary);
+  --fc-button-border-color: var(--bg-tertiary);
+  --fc-button-hover-bg-color: color-mix(in srgb, var(--bg-tertiary) 70%, white 30%);
+  --fc-button-active-bg-color: var(--accent);
+  --fc-button-active-border-color: var(--accent);
   --fc-event-border-color: transparent;
-  --fc-today-bg-color: rgba(99, 102, 241, 0.08);
+  --fc-today-bg-color: color-mix(in srgb, var(--accent) 8%, transparent);
   --fc-page-bg-color: transparent;
-  --fc-neutral-bg-color: #1f2937;
-  --fc-list-event-hover-bg-color: #1f2937;
+  --fc-neutral-bg-color: var(--bg-tertiary);
+  --fc-list-event-hover-bg-color: var(--bg-tertiary);
 }
-.fc-theme-standard td, .fc-theme-standard th {
-  border-color: #1f2937;
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border-color: var(--bg-tertiary);
 }
 .fc .fc-col-header-cell-cushion,
 .fc .fc-daygrid-day-number,
@@ -87,4 +116,11 @@
   border-radius: 4px;
   font-size: 0.78rem;
   padding: 1px 4px;
+}
+
+/* Sidebar background */
+aside.acadex-sidebar {
+  background-color: var(--bg-secondary);
+  border-right-color: var(--bg-tertiary);
+  transition: background-color 0.3s ease;
 }
