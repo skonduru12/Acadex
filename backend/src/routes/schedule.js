@@ -134,24 +134,15 @@ function resolveOverlaps(weeklySchedule, timeBlocks = []) {
   });
 }
 
-// Step 2a: strip any assignment/canvas sessions scheduled ON or AFTER a due date.
-// e.g. assignment due May 18 at 8:30 AM → no work allowed on May 18 at all.
+// Step 2a: strip assignment sessions scheduled ON or AFTER their specific due date.
+// Uses keyword matching so only the matched assignment is removed, not everything.
 function enforceAssignmentDates(weeklySchedule, canvasAssignments) {
   if (!canvasAssignments || !canvasAssignments.length) return weeklySchedule;
 
-  // Build a set of date strings where at least one assignment is due
-  const dueDates = new Set(
-    canvasAssignments
-      .filter(a => a.dueDate)
-      .map(a => localDateStr(new Date(a.dueDate)))
-  );
-
-  // Also build per-assignment cutoffs for keyword matching (catches sessions
-  // on days AFTER the due date for a specific assignment)
   const assignmentCutoffs = canvasAssignments
     .filter(a => a.dueDate)
     .map(a => ({
-      keywords: a.title.toLowerCase().split(/\s+/).filter(k => k.length > 2),
+      keywords: a.title.toLowerCase().split(/[\s\-:()/!?]+/).filter(k => k.length > 2),
       cutoff: (() => { const d = new Date(a.dueDate); d.setHours(0, 0, 0, 0); return d; })(),
     }));
 
@@ -162,10 +153,7 @@ function enforceAssignmentDates(weeklySchedule, canvasAssignments) {
     const tasks = (day.tasks || day.sessions || []).filter(task => {
       if (task.type !== 'assignment' && task.type !== 'canvas') return true;
 
-      // Rule 1: never work on a day when anything is due (covers early-morning deadlines)
-      if (dueDates.has(day.date)) return false;
-
-      // Rule 2: keyword match — never work on/after a specific assignment's due date
+      // Remove session if its title keyword-matches an assignment that's already due
       const titleLower = task.title.toLowerCase();
       for (const { keywords, cutoff } of assignmentCutoffs) {
         if (dayDate >= cutoff && keywords.some(k => titleLower.includes(k))) return false;
