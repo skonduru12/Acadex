@@ -6,6 +6,35 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+function expandBlocks(blocks, startDate, endDate) {
+  const events = [];
+  for (const b of blocks) {
+    if (!b.recurring) {
+      events.push({ id: `block-${b.id}`, title: b.title, start: b.startTime, end: b.endTime, type: 'block', color: b.color, allDay: false, data: b });
+      continue;
+    }
+    const base = new Date(b.startTime);
+    const duration = new Date(b.endTime) - base;
+    const cur = new Date(startDate);
+    cur.setHours(0, 0, 0, 0);
+    while (cur <= endDate) {
+      const dow = cur.getDay();
+      const match =
+        b.recurring === 'daily' ||
+        (b.recurring === 'weekdays' && dow >= 1 && dow <= 5) ||
+        (b.recurring === 'weekly' && dow === base.getDay());
+      if (match) {
+        const s = new Date(cur);
+        s.setHours(base.getHours(), base.getMinutes(), 0, 0);
+        const e = new Date(s.getTime() + duration);
+        events.push({ id: `block-${b.id}-${cur.toISOString().slice(0,10)}`, title: b.title, start: s, end: e, type: 'block', color: b.color, allDay: false, data: b });
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+  return events;
+}
+
 // Get all calendar events (tasks + tests + timeblocks + canvas + google)
 router.get('/events', auth, async (req, res) => {
   const { start, end } = req.query;
@@ -20,7 +49,13 @@ router.get('/events', auth, async (req, res) => {
       where: { userId: req.user.id, date: { gte: startDate, lte: endDate } },
     }),
     prisma.timeBlock.findMany({
-      where: { userId: req.user.id, startTime: { gte: startDate, lte: endDate } },
+      where: {
+        userId: req.user.id,
+        OR: [
+          { startTime: { gte: startDate, lte: endDate } },
+          { recurring: { not: null } },
+        ],
+      },
     }),
     prisma.canvasAssignment.findMany({
       where: { userId: req.user.id, dueDate: { gte: startDate, lte: endDate } },
@@ -48,16 +83,7 @@ router.get('/events', auth, async (req, res) => {
       allDay: true,
       data: t,
     })),
-    ...timeBlocks.map(b => ({
-      id: `block-${b.id}`,
-      title: b.title,
-      start: b.startTime,
-      end: b.endTime,
-      type: 'block',
-      color: b.color,
-      allDay: false,
-      data: b,
-    })),
+    ...expandBlocks(timeBlocks, startDate, endDate),
     ...canvasAssignments.map(a => {
       const due = a.dueDate ? new Date(a.dueDate) : null;
       const isMidnight = due && due.getUTCHours() === 0 && due.getUTCMinutes() === 0 && due.getUTCSeconds() === 0;

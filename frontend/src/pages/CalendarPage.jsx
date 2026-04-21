@@ -14,7 +14,7 @@ export default function CalendarPage() {
   const themeColors = useThemeStore((s) => s.colors);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showBlockModal, setShowBlockModal] = useState(false);
-  const [newBlock, setNewBlock] = useState({ title: '', startTime: '', endTime: '', color: themeColors.colorBlock });
+  const [newBlock, setNewBlock] = useState({ title: '', date: '', startTime: '', endTime: '', recurring: null, color: themeColors.colorBlock });
   const calendarRef = useRef(null);
   const qc = useQueryClient();
 
@@ -32,7 +32,7 @@ export default function CalendarPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['calendar-events'] });
       setShowBlockModal(false);
-      setNewBlock({ title: '', startTime: '', endTime: '', color: '#6366f1' });
+      setNewBlock({ title: '', date: '', startTime: '', endTime: '', recurring: null, color: themeColors.colorBlock });
       toast.success('Time block added');
     },
     onError: (err) => toast.error(err.error || 'Failed to add block'),
@@ -86,10 +86,17 @@ export default function CalendarPage() {
 
   const handleSubmitBlock = (e) => {
     e.preventDefault();
+    const startTime = `${newBlock.date}T${newBlock.startTime}`;
+    const endTime = `${newBlock.date}T${newBlock.endTime}`;
+    if (newBlock.endTime <= newBlock.startTime) {
+      toast.error('End time must be after start time');
+      return;
+    }
     addBlock.mutate({
       title: newBlock.title,
-      startTime: newBlock.startTime,
-      endTime: newBlock.endTime,
+      startTime,
+      endTime,
+      recurring: newBlock.recurring || null,
       color: newBlock.color,
     });
   };
@@ -193,38 +200,107 @@ export default function CalendarPage() {
       {/* Add time block modal */}
       {showBlockModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowBlockModal(false)}>
-          <div className="card w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-white">Block Time</h3>
-              <button onClick={() => setShowBlockModal(false)} className="text-gray-500 hover:text-gray-300"><X size={16} /></button>
+          <div className="card w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="font-semibold text-white text-lg">Block Time</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Mark time as unavailable for AI scheduling</p>
+              </div>
+              <button onClick={() => setShowBlockModal(false)} className="text-gray-500 hover:text-gray-300 p-1"><X size={18} /></button>
             </div>
-            <form onSubmit={handleSubmitBlock} className="space-y-3">
+
+            <form onSubmit={handleSubmitBlock} className="space-y-5">
+              {/* Title */}
               <div>
-                <label className="label">Title (e.g., Gym, Sleep, Dinner)</label>
-                <input className="input" value={newBlock.title} onChange={e => setNewBlock(p => ({ ...p, title: e.target.value }))} required placeholder="Block title" />
+                <label className="label">Block Title</label>
+                <input className="input" value={newBlock.title} onChange={e => setNewBlock(p => ({ ...p, title: e.target.value }))} required placeholder="e.g. Gym, Class, Sleep, Dinner" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Start</label>
-                  <input type="datetime-local" className="input" value={newBlock.startTime} onChange={e => setNewBlock(p => ({ ...p, startTime: e.target.value }))} required />
+
+              {/* Date section */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-gray-800" />
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Date</span>
+                  <div className="h-px flex-1 bg-gray-800" />
                 </div>
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={newBlock.date}
+                  onChange={e => setNewBlock(p => ({ ...p, date: e.target.value }))}
+                  required={!newBlock.recurring}
+                />
+                {/* Recurrence */}
                 <div>
-                  <label className="label">End</label>
-                  <input type="datetime-local" className="input" value={newBlock.endTime} onChange={e => setNewBlock(p => ({ ...p, endTime: e.target.value }))} required />
+                  <label className="label mb-2">Repeat</label>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[
+                      { value: null,       label: 'Once' },
+                      { value: 'daily',    label: 'Every Day' },
+                      { value: 'weekdays', label: 'Weekdays' },
+                      { value: 'weekly',   label: 'Weekly' },
+                    ].map(opt => (
+                      <button
+                        key={String(opt.value)}
+                        type="button"
+                        onClick={() => setNewBlock(p => ({ ...p, recurring: opt.value }))}
+                        className={`text-xs py-2 px-2 rounded-lg border font-medium transition-all ${
+                          newBlock.recurring === opt.value
+                            ? 'border-brand-500 bg-brand-500/20 text-brand-300'
+                            : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  {newBlock.recurring && (
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      {newBlock.recurring === 'daily' && 'Repeats every day at the selected time'}
+                      {newBlock.recurring === 'weekdays' && 'Repeats Mon–Fri at the selected time'}
+                      {newBlock.recurring === 'weekly' && 'Repeats every week on the same day'}
+                    </p>
+                  )}
                 </div>
               </div>
-              <div>
-                <label className="label">Color</label>
-                <div className="flex gap-2 mt-1">
-                  {['#6366f1', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899'].map(c => (
+
+              {/* Time section */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-gray-800" />
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Time</span>
+                  <div className="h-px flex-1 bg-gray-800" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Start Time</label>
+                    <input type="time" className="input" value={newBlock.startTime} onChange={e => setNewBlock(p => ({ ...p, startTime: e.target.value }))} required />
+                  </div>
+                  <div>
+                    <label className="label">End Time</label>
+                    <input type="time" className="input" value={newBlock.endTime} onChange={e => setNewBlock(p => ({ ...p, endTime: e.target.value }))} required />
+                  </div>
+                </div>
+              </div>
+
+              {/* Color section */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-gray-800" />
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Color</span>
+                  <div className="h-px flex-1 bg-gray-800" />
+                </div>
+                <div className="flex gap-2.5">
+                  {['#6366f1', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#f97316'].map(c => (
                     <button key={c} type="button" onClick={() => setNewBlock(p => ({ ...p, color: c }))}
-                      className="w-7 h-7 rounded-full border-2 transition-all"
+                      className="w-8 h-8 rounded-full border-2 transition-all hover:scale-110"
                       style={{ backgroundColor: c, borderColor: newBlock.color === c ? '#fff' : 'transparent' }} />
                   ))}
                 </div>
               </div>
-              <button type="submit" disabled={addBlock.isPending} className="btn-primary w-full mt-2">
-                {addBlock.isPending ? 'Saving...' : 'Block This Time'}
+
+              <button type="submit" disabled={addBlock.isPending} className="btn-primary w-full">
+                {addBlock.isPending ? 'Saving...' : newBlock.recurring ? `Save Recurring Block` : 'Save Block'}
               </button>
             </form>
           </div>
