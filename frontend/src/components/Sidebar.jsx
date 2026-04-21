@@ -1,9 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, CheckSquare, BookOpen,
-  Settings, LogOut, Zap, GraduationCap
+  Settings, LogOut
 } from 'lucide-react';
 import useStore from '../store/useStore';
+import useThemeStore from '../store/useThemeStore';
+import NexvoraLogo from './NexvoraLogo';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -15,6 +17,7 @@ const navItems = [
 export default function Sidebar() {
   const { user, logout } = useStore();
   const navigate = useNavigate();
+  const accentColor = useThemeStore((s) => s.colors.accent);
 
   const handleLogout = () => {
     logout();
@@ -25,14 +28,9 @@ export default function Sidebar() {
     <aside className="acadex-sidebar w-60 flex flex-col border-r shrink-0">
       {/* Logo */}
       <div className="p-5 border-b border-gray-800">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
-            <GraduationCap size={18} className="text-white" />
-          </div>
-          <span className="text-lg font-bold text-white tracking-tight">Acadex</span>
-          <span className="ml-auto">
-            <Zap size={14} className="text-brand-400" />
-          </span>
+        <div className="flex items-center gap-3">
+          <NexvoraLogo size={36} color={accentColor} />
+          <span className="text-lg font-bold text-white tracking-tight">Nexvora</span>
         </div>
         <p className="text-xs text-gray-500 mt-1">AI Student Hub</p>
       </div>
