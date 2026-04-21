@@ -21,7 +21,7 @@ const urgencyLabel = (daysLeft) => {
   return { label: `${daysLeft}d left`, color: 'text-green-400' };
 };
 
-const emptyForm = { subject: '', date: '', importanceLevel: 'medium', estimatedStudyHours: 3, notes: '' };
+const emptyForm = { subject: '', examDate: '', examTime: '', importanceLevel: 'medium', estimatedStudyHours: 3, notes: '' };
 
 export default function TestsPage() {
   const [showModal, setShowModal] = useState(false);
@@ -57,9 +57,11 @@ export default function TestsPage() {
 
   const openEdit = (test) => {
     setEditTest(test);
+    const d = new Date(test.date);
     setForm({
       subject: test.subject,
-      date: format(new Date(test.date), "yyyy-MM-dd'T'HH:mm"),
+      examDate: format(d, 'yyyy-MM-dd'),
+      examTime: format(d, 'HH:mm'),
       importanceLevel: test.importanceLevel,
       estimatedStudyHours: test.estimatedStudyHours,
       notes: test.notes || '',
@@ -71,8 +73,10 @@ export default function TestsPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (editTest) updateTest.mutate({ id: editTest.id, ...form });
-    else createTest.mutate(form);
+    const { examDate, examTime, ...rest } = form;
+    const payload = { ...rest, date: `${examDate}T${examTime || '09:00'}` };
+    if (editTest) updateTest.mutate({ id: editTest.id, ...payload });
+    else createTest.mutate(payload);
   };
 
   const upcoming = tests.filter(t => !t.completed && new Date(t.date) >= new Date());
@@ -207,9 +211,23 @@ export default function TestsPage() {
                 <label className="label">Subject *</label>
                 <input className="input" value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} required placeholder="e.g., Organic Chemistry Midterm" />
               </div>
-              <div>
-                <label className="label">Date & Time *</label>
-                <input type="datetime-local" className="input" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} required />
+              {/* Exam Date */}
+              <div className="rounded-lg border border-blue-500/30 bg-blue-500/8 px-3 py-2.5 space-y-2.5">
+                <div className="flex items-center gap-1.5">
+                  <AlertTriangle size={13} className="text-blue-400 shrink-0" />
+                  <span className="text-xs font-semibold text-blue-300 uppercase tracking-widest">Exam Day</span>
+                </div>
+                <p className="text-xs text-blue-200/70">The AI will schedule ALL study sessions strictly BEFORE this date.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="label">Exam Date *</label>
+                    <input type="date" className="input" value={form.examDate} onChange={e => setForm(p => ({ ...p, examDate: e.target.value }))} required />
+                  </div>
+                  <div>
+                    <label className="label">Exam Time</label>
+                    <input type="time" className="input" value={form.examTime} onChange={e => setForm(p => ({ ...p, examTime: e.target.value }))} placeholder="09:00" />
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
