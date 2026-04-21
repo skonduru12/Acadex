@@ -223,13 +223,21 @@ export default function CalendarPage() {
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Date</span>
                   <div className="h-px flex-1 bg-gray-800" />
                 </div>
-                <input
-                  type="date"
-                  className="input w-full"
-                  value={newBlock.date}
-                  onChange={e => setNewBlock(p => ({ ...p, date: e.target.value }))}
-                  required={!newBlock.recurring}
-                />
+                <div>
+                  <label className="label">
+                    {newBlock.recurring ? 'Starting From' : 'Date'}
+                  </label>
+                  <input
+                    type="date"
+                    className="input w-full"
+                    value={newBlock.date}
+                    onChange={e => setNewBlock(p => ({ ...p, date: e.target.value }))}
+                    required
+                  />
+                  {newBlock.recurring && (
+                    <p className="text-xs text-gray-500 mt-1">Recurrence begins on this date</p>
+                  )}
+                </div>
                 {/* Recurrence */}
                 <div>
                   <label className="label mb-2">Repeat</label>
