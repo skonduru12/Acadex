@@ -1,17 +1,18 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, CheckSquare, BookOpen,
-  Settings, LogOut
+  Settings, LogOut, CalendarClock
 } from 'lucide-react';
 import useStore from '../store/useStore';
 import useThemeStore from '../store/useThemeStore';
 import NexvoraLogo from './NexvoraLogo';
 
 const navItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/calendar', icon: Calendar, label: 'Calendar' },
-  { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
-  { to: '/tests', icon: BookOpen, label: 'Tests' },
+  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/schedule',   icon: CalendarClock,   label: 'Schedule'  },
+  { to: '/calendar',   icon: Calendar,        label: 'Calendar'  },
+  { to: '/tasks',      icon: CheckSquare,     label: 'Tasks'     },
+  { to: '/tests',      icon: BookOpen,        label: 'Tests'     },
 ];
 
 export default function Sidebar() {

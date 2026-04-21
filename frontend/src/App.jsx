@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import AuthCallback from './pages/AuthCallback';
 import Dashboard from './pages/Dashboard';
+import SchedulePage from './pages/SchedulePage';
 import CalendarPage from './pages/CalendarPage';
 import TasksPage from './pages/TasksPage';
 import TestsPage from './pages/TestsPage';
@@ -58,6 +59,7 @@ export default function App() {
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="schedule" element={<SchedulePage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="tests" element={<TestsPage />} />

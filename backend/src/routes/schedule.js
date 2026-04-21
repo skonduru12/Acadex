@@ -23,7 +23,7 @@ router.post('/generate', auth, async (req, res) => {
     const db = new PrismaClient();
 
     const now = new Date();
-    const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const monthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
     const [tasks, tests, timeBlocks, canvasAssignments] = await Promise.all([
       db.task.findMany({
@@ -31,11 +31,11 @@ router.post('/generate', auth, async (req, res) => {
         orderBy: { deadline: 'asc' },
       }),
       db.test.findMany({
-        where: { userId: req.user.id, completed: false, date: { gte: now } },
+        where: { userId: req.user.id, completed: false, date: { gte: now, lte: monthFromNow } },
         orderBy: { date: 'asc' },
       }),
       db.timeBlock.findMany({
-        where: { userId: req.user.id, startTime: { gte: now, lte: weekFromNow } },
+        where: { userId: req.user.id, startTime: { gte: now, lte: monthFromNow } },
       }),
       db.canvasAssignment.findMany({
         where: { userId: req.user.id, completed: false },
@@ -51,23 +51,22 @@ router.post('/generate', auth, async (req, res) => {
       currentDate: now.toISOString(),
     });
 
-    // Save schedule
-    const weekStart = new Date(now);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    weekStart.setHours(0, 0, 0, 0);
+    // Save schedule — upsert the latest schedule for this user
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const existing = await db.schedule.findFirst({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: 'desc' },
+    });
 
     const saved = await db.schedule.upsert({
-      where: {
-        id: (await db.schedule.findFirst({
-          where: { userId: req.user.id, weekStart },
-        }))?.id || 'new',
-      },
+      where: { id: existing?.id || 'new' },
       create: {
-        weekStart,
+        weekStart: monthStart,
         weekPlan: JSON.stringify(weekPlan),
         userId: req.user.id,
       },
       update: {
+        weekStart: monthStart,
         weekPlan: JSON.stringify(weekPlan),
       },
     });

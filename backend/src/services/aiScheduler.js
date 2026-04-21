@@ -11,28 +11,44 @@ const axios = require('axios');
  * Ollama local:   https://ollama.com  →  `ollama pull llama3.1`
  */
 
-const SYSTEM_PROMPT = `You are an expert academic scheduler. Generate an optimal weekly study plan for a student.
+const SYSTEM_PROMPT = `You are an expert academic planner. Generate a smart 30-day study and assignment plan for a student.
 
-Rules:
-- Max 6 hours of productive work per day
-- At least 1 break per 2 hours of work
-- NEVER schedule tasks during blocked times
-- Priority order: tests (highest) > canvas assignments > personal tasks
-- Use spaced repetition for test prep (spread study across multiple days)
-- Break work into 30–90 minute focused sessions
-- Balance workload across the week
-- Working hours: 8:00 AM to 10:00 PM only
+RULES:
+- ALL times must be in 12-hour PST format: "9:00 AM", "2:30 PM", "10:00 PM" — never 24-hour/military time
+- Working hours: 8:00 AM to 10:00 PM PST only
+- Max 6 hours of productive work per day, max 4 sessions per day
+- Never schedule during blocked times
+- Only output days that actually have sessions (skip empty days)
 
-Output ONLY valid JSON — no markdown fences, no explanation, just raw JSON:
+FOR TESTS (highest priority):
+- Start prep sessions at least 7 days before the test date
+- Schedule exactly 1 hour per day (e.g., "8:00 PM to 9:00 PM") leading up to the test
+- Add a 2-hour review session the day before the test
+- Label each session: "Study for [Subject] — Day X"
+
+FOR CANVAS ASSIGNMENTS:
+- Schedule work sessions 3–5 days before the due date
+- Break larger assignments into multiple 1–2 hour sessions across different days
+- Label: "Work on [Assignment Title] ([Course])"
+
+FOR PERSONAL TASKS:
+- Schedule based on deadline and priority
+- High priority = start 5+ days before; medium = 3 days; low = 1–2 days before
+
+BALANCE:
+- Spread work evenly — never stack more than 4 sessions on one day
+- Morning slots (8–12) for focused study, evening (6–10 PM) for review
+
+Output ONLY valid JSON, no markdown, no explanation:
 {
-  "week_plan": [
+  "month_plan": [
     {
       "date": "YYYY-MM-DD",
-      "tasks": [
+      "sessions": [
         {
           "title": "string",
-          "start_time": "HH:MM",
-          "end_time": "HH:MM",
+          "start_time": "9:00 AM",
+          "end_time": "10:00 AM",
           "type": "study|assignment|review|personal",
           "source": "canvas|personal|test_prep",
           "priority": "high|medium|low"
@@ -42,22 +58,50 @@ Output ONLY valid JSON — no markdown fences, no explanation, just raw JSON:
   ]
 }`;
 
+function fmt12(date) {
+  return new Date(date).toLocaleString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+function fmtDate(date) {
+  return new Date(date).toLocaleDateString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 function buildUserPrompt({ tasks, tests, timeBlocks, canvasAssignments, currentDate }) {
-  return `Current date/time: ${currentDate}
+  const pstNow = new Date(currentDate).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+  return `Today (PST): ${pstNow}
+Plan the next 30 days starting from today.
 
-UPCOMING TESTS (HIGHEST PRIORITY):
-${tests.length ? tests.map(t => `- ${t.subject} on ${new Date(t.date).toLocaleDateString()}, importance: ${t.importanceLevel}, needs ${t.estimatedStudyHours}h total prep`).join('\n') : 'None'}
+UPCOMING TESTS — schedule daily 1-hour prep sessions for each:
+${tests.length ? tests.map(t =>
+  `- Subject: "${t.subject}" | Test date: ${fmtDate(t.date)} | Importance: ${t.importanceLevel} | Estimated prep: ${t.estimatedStudyHours}h total`
+).join('\n') : 'None'}
 
-CANVAS ASSIGNMENTS:
-${canvasAssignments.length ? canvasAssignments.map(a => `- "${a.title}" (${a.courseName}), due: ${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'No date'}`).join('\n') : 'None'}
+CANVAS ASSIGNMENTS — schedule work sessions before each due date:
+${canvasAssignments.length ? canvasAssignments.map(a =>
+  `- "${a.title}" (${a.courseName}) | Due: ${a.dueDate ? fmtDate(a.dueDate) : 'No due date'}`
+).join('\n') : 'None'}
 
-PERSONAL TASKS:
-${tasks.length ? tasks.map(t => `- "${t.title}", deadline: ${t.deadline ? new Date(t.deadline).toLocaleDateString() : 'None'}, priority: ${t.priority}, est: ${t.estimatedHours}h`).join('\n') : 'None'}
+PERSONAL TASKS — schedule based on deadline and priority:
+${tasks.length ? tasks.map(t =>
+  `- "${t.title}" | Deadline: ${t.deadline ? fmtDate(t.deadline) : 'None'} | Priority: ${t.priority} | Est: ${t.estimatedHours || 1}h`
+).join('\n') : 'None'}
 
-BLOCKED TIMES (NEVER schedule during these):
-${timeBlocks.length ? timeBlocks.map(b => `- "${b.title}": ${new Date(b.startTime).toLocaleDateString()} ${new Date(b.startTime).toLocaleTimeString()} – ${new Date(b.endTime).toLocaleTimeString()}`).join('\n') : 'None'}
+BLOCKED TIMES — NEVER schedule sessions during these:
+${timeBlocks.length ? timeBlocks.map(b =>
+  `- "${b.title}": ${fmtDate(b.startTime)} ${fmt12(b.startTime)} – ${fmt12(b.endTime)}`
+).join('\n') : 'None'}
 
-Generate a complete 7-day schedule starting today. Include every day. Return ONLY the JSON object.`;
+Return ONLY the JSON object with month_plan. Use 12-hour PST times. Only include days that have sessions.`;
 }
 
 // ── Groq (free cloud, LLaMA 3 8B Instant) ───────────────────────────────────
@@ -72,7 +116,7 @@ async function generateWithGroq(promptData) {
         { role: 'user', content: buildUserPrompt(promptData) },
       ],
       temperature: 0.3,
-      max_tokens: 1500,
+      max_tokens: 6000,
       response_format: { type: 'json_object' },
     },
     {
