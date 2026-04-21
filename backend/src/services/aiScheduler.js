@@ -110,9 +110,9 @@ ${tests.length ? tests.map(t =>
   `• "${t.subject}" | EXAM DATE: ${fmtDate(t.date)} at ${fmt12(t.date)} — DO NOT schedule ANYTHING on this date | Total prep hours needed: ${t.estimatedStudyHours}h | Split into ${t.estimatedStudyHours} sessions of 1h each on separate days before exam | Importance: ${t.importanceLevel}/5`
 ).join('\n') : 'NONE — do NOT add any study/review/test_prep sessions at all'}
 
-=== CANVAS ASSIGNMENTS — finish at least 1 day BEFORE due date ===
+=== CANVAS ASSIGNMENTS — ALL work must be done STRICTLY BEFORE the due date (never on the due date) ===
 ${canvasAssignments.length ? canvasAssignments.map(a =>
-  `• "${a.title}" (${a.courseName}) | Due: ${a.dueDate ? fmtDate(a.dueDate) : 'No due date'}`
+  `• "${a.title}" (${a.courseName}) | Due: ${a.dueDate ? `${fmtDate(a.dueDate)} at ${fmt12(a.dueDate)} — do NOT schedule any session on this date` : 'No due date'}`
 ).join('\n') : 'None'}
 
 === PERSONAL TASKS ===

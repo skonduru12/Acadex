@@ -134,7 +134,51 @@ function resolveOverlaps(weeklySchedule, timeBlocks = []) {
   });
 }
 
-// Step 2: strip any test_prep sessions on or after any test's exam date
+// Step 2a: strip any assignment/canvas sessions scheduled ON or AFTER a due date.
+// e.g. assignment due May 18 at 8:30 AM → no work allowed on May 18 at all.
+function enforceAssignmentDates(weeklySchedule, canvasAssignments) {
+  if (!canvasAssignments || !canvasAssignments.length) return weeklySchedule;
+
+  // Build a set of date strings where at least one assignment is due
+  const dueDates = new Set(
+    canvasAssignments
+      .filter(a => a.dueDate)
+      .map(a => localDateStr(new Date(a.dueDate)))
+  );
+
+  // Also build per-assignment cutoffs for keyword matching (catches sessions
+  // on days AFTER the due date for a specific assignment)
+  const assignmentCutoffs = canvasAssignments
+    .filter(a => a.dueDate)
+    .map(a => ({
+      keywords: a.title.toLowerCase().split(/\s+/).filter(k => k.length > 2),
+      cutoff: (() => { const d = new Date(a.dueDate); d.setHours(0, 0, 0, 0); return d; })(),
+    }));
+
+  return (weeklySchedule || []).map(day => {
+    const dayDate = new Date(day.date + 'T00:00:00');
+    dayDate.setHours(0, 0, 0, 0);
+
+    const tasks = (day.tasks || day.sessions || []).filter(task => {
+      if (task.type !== 'assignment' && task.type !== 'canvas') return true;
+
+      // Rule 1: never work on a day when anything is due (covers early-morning deadlines)
+      if (dueDates.has(day.date)) return false;
+
+      // Rule 2: keyword match — never work on/after a specific assignment's due date
+      const titleLower = task.title.toLowerCase();
+      for (const { keywords, cutoff } of assignmentCutoffs) {
+        if (dayDate >= cutoff && keywords.some(k => titleLower.includes(k))) return false;
+      }
+
+      return true;
+    });
+
+    return { ...day, tasks };
+  }).filter(day => (day.tasks || []).length > 0);
+}
+
+// Step 2b: strip any test_prep sessions on or after any test's exam date
 function enforceTestDates(weeklySchedule, tests) {
   if (!tests || !tests.length) return weeklySchedule;
   const testCutoffs = tests.map(t => { const d = new Date(t.date); d.setHours(0,0,0,0); return d; });
@@ -287,10 +331,12 @@ router.post('/generate', auth, async (req, res) => {
 
     // 1. Fix AI overlaps (also shifts away from blocked times)
     const step1 = resolveOverlaps(rawSchedule, timeBlocks);
-    // 2. Remove test_prep on/after exam date
-    const step2 = enforceTestDates(step1, tests);
+    // 2a. Remove assignment work on/after due date (covers early-morning deadlines)
+    const step2a = enforceAssignmentDates(step1, canvasAssignments);
+    // 2b. Remove test_prep on/after exam date
+    const step2b = enforceTestDates(step2a, tests);
     // 3. Inject missing study sessions into free slots (avoids sessions + blocks)
-    const step3 = ensureStudyHours(step2, tests, now.toISOString(), timeBlocks);
+    const step3 = ensureStudyHours(step2b, tests, now.toISOString(), timeBlocks);
     // 4. Final overlap pass after injection
     const step4 = resolveOverlaps(step3, timeBlocks);
 
