@@ -4,7 +4,6 @@ const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const authMiddleware = require('../middleware/auth');
-const admin = require('firebase-admin');
 
 const prisma = new PrismaClient();
 const googleClient = new OAuth2Client(
@@ -12,16 +11,6 @@ const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_SECRET,
   process.env.GOOGLE_REDIRECT_URI
 );
-
-// Initialise Firebase Admin (used to verify tokens from the frontend SDK)
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: process.env.FIREBASE_SERVICE_ACCOUNT
-      ? admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
-      : admin.credential.applicationDefault(),
-    projectId: process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID,
-  });
-}
 
 // Get Google OAuth URL
 router.get('/google', (req, res) => {
@@ -109,36 +98,6 @@ router.post('/canvas-token', authMiddleware, async (req, res) => {
     .catch(err => console.error('[Canvas] Auto-sync failed:', err.message));
 
   res.json({ success: true });
-});
-
-// Firebase Google Sign-In (frontend SDK → backend verification)
-router.post('/firebase', async (req, res) => {
-  const { idToken } = req.body;
-  if (!idToken) return res.status(400).json({ error: 'idToken required' });
-
-  try {
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    const { uid, email, name, picture } = decoded;
-
-    let user = await prisma.user.findUnique({ where: { googleId: uid } });
-    if (!user) {
-      // Also check by email in case they logged in via old OAuth flow
-      user = await prisma.user.findUnique({ where: { email } });
-    }
-    if (!user) {
-      user = await prisma.user.create({
-        data: { email, name: name || email.split('@')[0], picture: picture || null, googleId: uid },
-      });
-    } else if (!user.googleId) {
-      user = await prisma.user.update({ where: { id: user.id }, data: { googleId: uid, picture: picture || user.picture } });
-    }
-
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, picture: user.picture } });
-  } catch (err) {
-    console.error('Firebase auth error:', err);
-    res.status(401).json({ error: 'Invalid Google token' });
-  }
 });
 
 // Demo login (for development without Google OAuth setup)
