@@ -6,36 +6,46 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-// Hard-enforce: strip any test_prep sessions scheduled on or after a test date
+// How many days before the exam to START spreading study sessions (by importance)
+const IMPORTANCE_LEAD_DAYS = { critical: 10, high: 7, medium: 5, low: 3 };
+
+// How many sessions per day are allowed at maximum
+const MAX_SESSIONS_PER_DAY = 4;
+
+function localDateStr(d) {
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+// Strip any test_prep sessions on or after any test's exam date
 function enforceTestDates(weeklySchedule, tests) {
   if (!tests || !tests.length) return weeklySchedule;
 
   const testCutoffs = tests.map(t => {
-    const d = new Date(t.date); d.setHours(0, 0, 0, 0); return d;
+    const d = new Date(t.date);
+    d.setHours(0, 0, 0, 0);
+    return d;
   });
 
-  const filtered = (weeklySchedule || []).map(day => {
-    // Append T00:00:00 so JS parses as local time, not UTC midnight
+  return (weeklySchedule || []).map(day => {
     const dayDate = new Date(day.date + 'T00:00:00');
     dayDate.setHours(0, 0, 0, 0);
-
     const tasks = (day.tasks || day.sessions || []).filter(task => {
       if (task.type !== 'test_prep') return true;
-      // Remove if on/after ANY test's cutoff date
       return !testCutoffs.some(cutoff => dayDate >= cutoff);
     });
-
     return { ...day, tasks };
   }).filter(day => (day.tasks || []).length > 0);
-
-  return filtered;
 }
 
-// Hard-enforce: ensure each test has exactly estimatedStudyHours sessions (1h each)
+// Guarantee exactly estimatedStudyHours prep sessions per test,
+// spread evenly across the study window based on importance level.
 function ensureStudyHours(weeklySchedule, tests, currentDate) {
   if (!tests || !tests.length) return weeklySchedule;
 
-  // Build mutable map: date string -> day object with tasks array
   const dayMap = {};
   for (const day of (weeklySchedule || [])) {
     dayMap[day.date] = { ...day, tasks: [...(day.tasks || day.sessions || [])] };
@@ -44,7 +54,6 @@ function ensureStudyHours(weeklySchedule, tests, currentDate) {
   const now = new Date(currentDate);
   now.setHours(0, 0, 0, 0);
 
-  // Spread study times across different hours so days with multiple sessions look natural
   const studySlots = [
     { start: '4:00 PM', end: '5:00 PM' },
     { start: '5:00 PM', end: '6:00 PM' },
@@ -58,8 +67,9 @@ function ensureStudyHours(weeklySchedule, tests, currentDate) {
 
     const keywords = test.subject.toLowerCase().split(/\s+/).filter(k => k.length > 2);
     const neededSessions = Math.ceil(test.estimatedStudyHours);
+    const leadDays = IMPORTANCE_LEAD_DAYS[test.importanceLevel] || 5;
 
-    // Count existing prep sessions before the test cutoff
+    // Count already-scheduled prep sessions for this test
     let existingCount = 0;
     for (const [dateStr, day] of Object.entries(dayMap)) {
       const d = new Date(dateStr + 'T00:00:00');
@@ -75,26 +85,29 @@ function ensureStudyHours(weeklySchedule, tests, currentDate) {
     const toAdd = neededSessions - existingCount;
     if (toAdd <= 0) continue;
 
-    // Fill missing sessions going backwards from day before exam
+    // Study window: from max(today, exam - leadDays) to day before exam
+    const dayBeforeExam = new Date(testCutoff);
+    dayBeforeExam.setDate(dayBeforeExam.getDate() - 1);
+
+    const idealStart = new Date(testCutoff);
+    idealStart.setDate(idealStart.getDate() - Math.max(leadDays, neededSessions));
+    const windowStart = idealStart < now ? now : idealStart;
+
+    const windowDays = Math.max(1, Math.round((dayBeforeExam - windowStart) / 86400000));
+    // Spread sessions evenly: interval = windowDays / (toAdd - 1), min 1
+    const interval = toAdd > 1 ? Math.max(1, Math.floor(windowDays / (toAdd - 1))) : 0;
+
     let added = 0;
-    const checkDate = new Date(testCutoff);
-    checkDate.setDate(checkDate.getDate() - 1);
+    for (let i = 0; i < toAdd; i++) {
+      const target = new Date(windowStart);
+      target.setDate(windowStart.getDate() + i * interval);
+      if (target > dayBeforeExam) break;
 
-    while (added < toAdd && checkDate >= now) {
-      // toISOString gives UTC; since checkDate is local midnight (UTC+offset),
-      // use toLocaleDateString to get correct local date string
-      const dateStr = [
-        checkDate.getFullYear(),
-        String(checkDate.getMonth() + 1).padStart(2, '0'),
-        String(checkDate.getDate()).padStart(2, '0'),
-      ].join('-');
-
-      if (!dayMap[dateStr]) {
-        dayMap[dateStr] = { date: dateStr, tasks: [] };
-      }
+      const dateStr = localDateStr(target);
+      if (!dayMap[dateStr]) dayMap[dateStr] = { date: dateStr, tasks: [] };
       const day = dayMap[dateStr];
 
-      if (day.tasks.length < 4) {
+      if (day.tasks.length < MAX_SESSIONS_PER_DAY) {
         const slot = studySlots[added % studySlots.length];
         day.tasks.push({
           title: `${test.subject} — Study Session`,
@@ -105,12 +118,47 @@ function ensureStudyHours(weeklySchedule, tests, currentDate) {
         });
         added++;
       }
-
-      checkDate.setDate(checkDate.getDate() - 1);
     }
   }
 
   return Object.values(dayMap).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Build reminder insights for each upcoming test based on importance level
+function buildTestInsights(tests, currentDate) {
+  if (!tests || !tests.length) return [];
+  const now = new Date(currentDate);
+  const insights = [];
+
+  const urgencyEmoji = { critical: '🚨', high: '🔴', medium: '🟡', low: '🟢' };
+  const urgencyLabel = { critical: 'CRITICAL', high: 'HIGH PRIORITY', medium: 'Medium priority', low: 'Low priority' };
+
+  for (const test of tests) {
+    const examDate = new Date(test.date);
+    const daysLeft = Math.ceil((examDate - now) / 86400000);
+    const emoji = urgencyEmoji[test.importanceLevel] || '📚';
+    const label = urgencyLabel[test.importanceLevel] || '';
+    const sessions = Math.ceil(test.estimatedStudyHours);
+    const leadDays = IMPORTANCE_LEAD_DAYS[test.importanceLevel] || 5;
+
+    let reminder = `${emoji} ${label} — "${test.subject}" exam in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. `;
+    reminder += `${sessions} study session${sessions !== 1 ? 's' : ''} of 1h each scheduled, `;
+    reminder += `spread over the ${leadDays} days before your exam.`;
+
+    if (test.importanceLevel === 'critical') {
+      reminder += ' Start studying immediately — this is your most important exam.';
+    } else if (test.importanceLevel === 'high') {
+      reminder += ' Stay consistent — do not skip any sessions.';
+    } else if (test.importanceLevel === 'medium') {
+      reminder += ' Keep up with the sessions and review your notes.';
+    } else {
+      reminder += ' Light prep scheduled — quick review sessions only.';
+    }
+
+    insights.push(reminder);
+  }
+
+  return insights;
 }
 
 // Get latest schedule
@@ -164,15 +212,18 @@ router.post('/generate', auth, async (req, res) => {
       currentDate: now.toISOString(),
     });
 
-    // Step 1: strip any test_prep on/after exam date
+    // Step 1: strip test_prep on/after exam date
     const enforced = enforceTestDates(raw.weekly_schedule || raw.month_plan, tests);
 
-    // Step 2: guarantee exactly estimatedStudyHours sessions per test
+    // Step 2: guarantee the exact study hours per test, spread by importance
     const weeklySchedule = ensureStudyHours(enforced, tests, now.toISOString());
 
-    const weekPlan = { ...raw, weekly_schedule: weeklySchedule };
+    // Step 3: build per-test reminder insights
+    const testInsights = buildTestInsights(tests, now.toISOString());
+    const allInsights = [...testInsights, ...(raw.insights || [])];
 
-    // Save — upsert the latest schedule for this user
+    const weekPlan = { ...raw, weekly_schedule: weeklySchedule, insights: allInsights };
+
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const existing = await db.schedule.findFirst({
       where: { userId: req.user.id },
