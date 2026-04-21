@@ -110,10 +110,13 @@ ${tests.length ? tests.map(t =>
   `• "${t.subject}" | EXAM DATE: ${fmtDate(t.date)} at ${fmt12(t.date)} — DO NOT schedule ANYTHING on this date | Total prep hours needed: ${t.estimatedStudyHours}h | Split into ${t.estimatedStudyHours} sessions of 1h each on separate days before exam | Importance: ${t.importanceLevel}/5`
 ).join('\n') : 'NONE — do NOT add any study/review/test_prep sessions at all'}
 
-=== CANVAS ASSIGNMENTS — ALL work must be done STRICTLY BEFORE the due date (never on the due date) ===
-${canvasAssignments.length ? canvasAssignments.map(a =>
-  `• "${a.title}" (${a.courseName}) | Due: ${a.dueDate ? `${fmtDate(a.dueDate)} at ${fmt12(a.dueDate)} — do NOT schedule any session on this date` : 'No due date'}`
-).join('\n') : 'None'}
+=== CANVAS ASSIGNMENTS — schedule ALL work sessions on days BEFORE the due date, never on the due date itself ===
+${canvasAssignments.length ? canvasAssignments.map(a => {
+  if (!a.dueDate) return `• "${a.title}" (${a.courseName}) | No due date`;
+  const deadline = new Date(a.dueDate);
+  deadline.setDate(deadline.getDate() - 1);
+  return `• "${a.title}" (${a.courseName}) | Actual due: ${fmtDate(a.dueDate)} at ${fmt12(a.dueDate)} | LAST DAY to work on it: ${fmtDate(deadline)} — finish by end of this day`;
+}).join('\n') : 'None'}
 
 === PERSONAL TASKS ===
 ${tasks.length ? tasks.map(t =>

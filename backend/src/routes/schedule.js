@@ -320,9 +320,8 @@ router.post('/generate', auth, async (req, res) => {
     // 1. Fix AI overlaps (also shifts away from blocked times)
     const step1 = resolveOverlaps(rawSchedule, timeBlocks);
     // 2a. Remove assignment work on/after due date (covers early-morning deadlines)
-    const step2a = enforceAssignmentDates(step1, canvasAssignments);
     // 2b. Remove test_prep on/after exam date
-    const step2b = enforceTestDates(step2a, tests);
+    const step2b = enforceTestDates(step1, tests);
     // 3. Inject missing study sessions into free slots (avoids sessions + blocks)
     const step3 = ensureStudyHours(step2b, tests, now.toISOString(), timeBlocks);
     // 4. Final overlap pass after injection
